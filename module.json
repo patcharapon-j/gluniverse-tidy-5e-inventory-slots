@@ -1,0 +1,55 @@
+{
+    "id": "gluniverse-tidy-5e-inventory-slots",
+    "title": "GLUniverse - Tidy 5e Inventory Slots",
+    "description": "Integrates Giffyglyph's Darker Dungeons Active Inventory system into Tidy 5e sheets. Replaces weight-based encumbrance with a slot/bulk system featuring quickdraw items, pack endurance, object scaling, containers, and configurable encumbrance thresholds.",
+    "version": "1.0.0",
+    "authors": [
+        {
+            "name": "GLUniverse"
+        }
+    ],
+    "compatibility": {
+        "minimum": "13",
+        "verified": "13"
+    },
+    "relationships": {
+        "systems": [
+            {
+                "id": "dnd5e",
+                "type": "system",
+                "compatibility": {
+                    "minimum": "5.2.0",
+                    "verified": "5.2.5"
+                }
+            }
+        ],
+        "requires": [
+            {
+                "id": "tidy5e-sheet",
+                "type": "module",
+                "compatibility": {
+                    "minimum": "12.0.0"
+                }
+            }
+        ]
+    },
+    "esmodules": [
+        "scripts/module.js"
+    ],
+    "styles": [
+        "styles/inventory-slots.css"
+    ],
+    "languages": [
+        {
+            "lang": "en",
+            "name": "English",
+            "path": "languages/en.json"
+        }
+    ],
+    "socket": false,
+    "url": "https://github.com/patcharapon-j/gluniverse-tidy-5e-inventory-slots",
+    "manifest": "https://github.com/patcharapon-j/gluniverse-tidy-5e-inventory-slots/releases/latest/download/module.json",
+    "download": "https://github.com/patcharapon-j/gluniverse-tidy-5e-inventory-slots/releases/latest/download/module.zip",
+    "bugs": "https://github.com/patcharapon-j/gluniverse-tidy-5e-inventory-slots/issues",
+    "license": "MIT"
+}

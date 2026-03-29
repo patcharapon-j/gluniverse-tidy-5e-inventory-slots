@@ -1,0 +1,261 @@
+{
+    "GLINVSLOTS": {
+        "inventorySlots": "Inventory Slots",
+        "slots": "slots",
+        "max": "Capacity",
+        "overburdenedAt": "Overburdened",
+        "encumbranceThreshold": "Encumbrance threshold",
+        "quickdraw": "Quickdraw",
+        "basicSupply": "Basic Supply",
+        "itemConfig": "Inventory Slots",
+
+        "bulkShort": "Bulk",
+        "bulkTooltip": "Bulk — carrying effort required",
+        "bulkPer": "Bulk per item",
+        "bulkCategory": "Bulk Category",
+        "bulkOverride": "Bulk Override",
+        "containerSlots": "Container Slots",
+        "magicContainerSlots": "Magic Container Slots",
+        "objectScale": "Object Scale",
+        "auto": "Auto",
+        "none": "None",
+
+        "setQuickdraw": "Set as Quickdraw",
+        "removeQuickdraw": "Remove Quickdraw",
+        "setBasicSupply": "Set as Basic Supply",
+        "removeBasicSupply": "Remove Basic Supply",
+        "quickdrawFull": "All {max} quickdraw slots are already assigned.",
+        "basicSupplyTooltip": "Basic supply — does not occupy inventory slots",
+
+        "bulk": {
+            "tiny": "Tiny",
+            "small": "Small",
+            "medium": "Medium",
+            "large": "Large",
+            "xlarge": "X-Large",
+            "xxlarge": "XX-Large",
+            "massive": "Massive"
+        },
+
+        "scale": {
+            "tiny": "Tiny (−2 categories)",
+            "small": "Small (−1 category)",
+            "medium": "Medium (standard)",
+            "large": "Large (+1 category)",
+            "huge": "Huge (+2 categories)",
+            "gargantuan": "Gargantuan (+3 categories)"
+        },
+
+        "state": {
+            "normal": "Normal",
+            "encumbered": "Encumbered",
+            "overburdened": "Overburdened"
+        },
+
+        "tooltip": {
+            "size": "Size",
+            "baseSlots": "Base Slots",
+            "using": "Using",
+            "packEndurance": "Pack Endurance",
+            "total": "Total",
+            "overridden": "Manual Override",
+            "configure": "Configure Inventory Slots"
+        },
+
+        "tab": {
+            "label": "Darker Dungeons"
+        },
+
+        "dialog": {
+            "sizeOverride": "Size Category Override",
+            "maxSlotsOverride": "Max Slots Override",
+            "calculatedSlots": "Calculated Slots",
+            "save": "Save",
+            "overrideHint": "Leave empty to use the calculated value. Size override affects the base slot formula. Max slots override replaces the entire calculation."
+        },
+
+        "notch": {
+            "wearAndTear": "Wear & Tear",
+            "notches": "Notches",
+            "notch": "Notch",
+            "temper": {
+                "none": "Untempered",
+                "pure": "Pure Temper",
+                "royal": "Royal Temper",
+                "astral": "Astral Temper"
+            },
+            "fragility": {
+                "label": "Fragility",
+                "delicate": "Delicate",
+                "sturdy": "Sturdy",
+                "indestructible": "Indestructible"
+            },
+            "quality": {
+                "label": "Quality",
+                "pristine": "Pristine",
+                "worn": "Worn",
+                "wellWorn": "Well-Worn",
+                "scarred": "Scarred"
+            },
+            "shattered": "Shattered",
+            "damage": "Damage",
+            "addNotch": "Add Notch",
+            "removeNotch": "Repair (Remove Notch)",
+            "repairCost": "Repair Cost",
+            "perNotch": "per notch",
+            "total": "Total",
+            "setTemper": "Set Temper Grade",
+            "currentTemper": "Temper",
+            "temperCost": "Tempering Cost",
+            "temperTime": "Tempering Time",
+            "days": "days",
+            "critHit": "Critical Hit",
+            "critFumble": "Critical Fumble",
+            "itemNotched": "{item} gained a notch!",
+            "armorNotched": "Armor took damage from a critical hit!",
+            "weaponNotched": "Weapon took damage from a critical fumble!",
+            "focusNotched": "Focus took damage from a critical fumble!",
+            "randomItemNotched": "A random item was damaged!",
+            "sacrificeWeapon": "Sacrifice Weapon",
+            "sacrificeArmor": "Sacrifice Armor",
+            "sacrificeWarning": "This will irreparably destroy the item!",
+            "acPenalty": "AC Penalty",
+            "degradedDamage": "Degraded Damage",
+            "focusPenalty": "Focus Penalty",
+            "toSpellAttackDC": "to spell attack & save DC",
+            "arcaneFocus": "Arcane Focus",
+            "modifiersOnly": "Modifiers only",
+            "config": "Wear & Tear"
+        },
+
+        "ammo": {
+            "ammunitionDice": "Ammunition Dice",
+            "ammoDie": "Ammo Die",
+            "currentDie": "Current Die",
+            "maxDie": "Max Die",
+            "rolled": "Rolled",
+            "degraded": "Ammo die degraded to",
+            "degradedToLast": "Last shot remaining!",
+            "depleted": "Ammunition depleted!",
+            "lastShotUsed": "Last shot used — ammunition depleted!",
+            "noChange": "Ammo die unchanged",
+            "empty": "Empty",
+            "lastShot": "Last Shot",
+            "rollAmmo": "Roll Ammo Die",
+            "replenish": "Replenish (+1 step)",
+            "replenishFull": "Replenish to Full",
+            "replenishCost": "Replenish Cost",
+            "reset": "Reset to Full",
+            "useAmmoDice": "Use Ammunition Dice",
+            "trackIndividual": "Track Individually",
+            "trackIndividualHint": "Magic/special ammo — track each shot individually",
+            "config": "Ammunition Dice",
+            "pairedAmmo": "Paired Ammunition",
+            "noPairing": "No ammo items found on this character"
+        },
+
+        "pool": {
+            "dicePool": "Dice Pool",
+            "pool": "Pool",
+            "currentPool": "Current Pool",
+            "maxPool": "Max Pool Size",
+            "dieType": "Die Type",
+            "discardThreshold": "Discard Threshold",
+            "discardHint": "Dice showing this value or below are removed",
+            "rollPool": "Roll Pool",
+            "addDie": "Add Die",
+            "removeDie": "Remove Die",
+            "refill": "Refill Pool",
+            "depleted": "Depleted",
+            "useDicePool": "Use Dice Pool",
+            "remaining": "Remaining",
+            "diceLost": "dice lost",
+            "noDiceLost": "No dice lost",
+            "itemDepleted": "Item depleted!",
+            "config": "Dice Pool"
+        },
+
+        "settings": {
+            "enableSlotSystem": {
+                "name": "Enable Inventory Slot System",
+                "hint": "Replace weight-based encumbrance with the slot/bulk inventory system from Darker Dungeons."
+            },
+            "enableForNPCs": {
+                "name": "Enable for NPCs",
+                "hint": "Apply the inventory slot system to NPC sheets as well as player characters."
+            },
+            "enableQuickdraw": {
+                "name": "Quickdraw Variant",
+                "hint": "Allow players to mark items as quickdraw (free action to draw). Non-quickdraw items require a full action."
+            },
+            "quickdrawSlots": {
+                "name": "Quickdraw Slots",
+                "hint": "Maximum number of items that can be designated as quickdraw."
+            },
+            "enablePackEndurance": {
+                "name": "Pack Endurance Variant",
+                "hint": "Use the higher of Strength or Constitution modifier for inventory slot calculation."
+            },
+            "enableObjectScaling": {
+                "name": "Object Scaling",
+                "hint": "Allow items to have scaled sizes (tiny to gargantuan) that shift their bulk category."
+            },
+            "enableEncumbranceEffects": {
+                "name": "Encumbrance Effects",
+                "hint": "Automatically track encumbrance state when carrying exceeds capacity (speed halved, disadvantage on STR/DEX/CON checks)."
+            },
+            "enableContainerRules": {
+                "name": "Container Rules",
+                "hint": "Containers have internal slots equal to their bulk rating. Items inside count toward the container, not the character."
+            },
+            "enableBasicSupplies": {
+                "name": "Basic Supplies",
+                "hint": "Allow marking items as basic supplies (ration box, waterskin, purse) that don't occupy inventory slots."
+            },
+            "enableArmorSlotCost": {
+                "name": "Armor Slot Cost",
+                "hint": "Armor continues to occupy inventory slots when worn, using the armor bulk table based on creature size."
+            },
+            "autoBulkFromWeight": {
+                "name": "Auto-Calculate Bulk from Weight",
+                "hint": "Automatically derive bulk category from item weight when no manual bulk is set."
+            },
+            "showBulkColumn": {
+                "name": "Show Bulk Column",
+                "hint": "Display a Bulk column in the inventory table alongside Weight."
+            },
+            "replaceEncumbranceBar": {
+                "name": "Replace Encumbrance Bar",
+                "hint": "Override Tidy 5e's encumbrance bar to show slot usage instead of weight."
+            },
+            "enableWearAndTear": {
+                "name": "Wear & Tear (Notch System)",
+                "hint": "Track item degradation via notches. Weapons lose damage dice, armor loses AC, and items can shatter."
+            },
+            "enableTempering": {
+                "name": "Tempering",
+                "hint": "Allow items to be tempered (Pure, Royal, Astral) to reduce notch gain from critical failures."
+            },
+            "autoNotchOnCrit": {
+                "name": "Auto-Notch on Crits/Fumbles",
+                "hint": "Automatically add notches when critical hits damage armor or critical fumbles damage weapons."
+            },
+            "enableAmmunitionDice": {
+                "name": "Ammunition Dice",
+                "hint": "Replace individual ammo counting with dice. After each shot, roll the ammo die — on a 1 or 2, the die degrades."
+            },
+            "autoRollAmmoDice": {
+                "name": "Auto-Roll Ammo Dice",
+                "hint": "Automatically roll the ammunition die when an attack with that ammo is made."
+            },
+            "enableDicePool": {
+                "name": "Dice Pool System",
+                "hint": "Allow marking items to use a dice pool. Roll the pool on use — dice at or below the discard threshold are removed. Item is depleted when pool is empty."
+            }
+        },
+
+        "errors": {
+            "tidyRequired": "GLUniverse Inventory Slots requires the Tidy 5e Sheet module to be active."
+        }
+    }
+}
