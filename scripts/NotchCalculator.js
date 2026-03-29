@@ -47,10 +47,17 @@ export class NotchCalculator {
     }
 
     /**
-     * Check if an item is shattered (notches >= max, or weapon degraded past modifiers-only).
+     * Check if an item is shattered (notches >= max, weapon degraded past modifiers-only,
+     * or armor AC penalty meets/exceeds its base AC bonus).
      */
     static isShattered(item) {
         if (this.getEffectiveNotches(item) >= this.getMaxNotches(item)) return true;
+
+        // Armor shatters when notches reduce AC bonus to zero or below
+        if (item.type === 'equipment') {
+            const acBonus = this.getArmorACBonus(item);
+            if (acBonus > 0 && this.getEffectiveNotches(item) >= acBonus) return true;
+        }
 
         // Weapons shatter one notch after losing all dice
         if (item.type === 'weapon') {
@@ -365,14 +372,31 @@ export class NotchCalculator {
     // ─── Armor Penalty ──────────────────────────────────────────────
 
     /**
+     * Get the base AC bonus of armor, excluding Dex.
+     * Body armor: armor.value - 10 (e.g. chain mail 16 → 6).
+     * Shields: armor.value directly (typically 2).
+     * Returns 0 if not armor.
+     */
+    static getArmorACBonus(item) {
+        if (item.type !== 'equipment') return 0;
+        const armorType = item.system.type?.value || item.system.armor?.type;
+        if (!['light', 'medium', 'heavy', 'shield'].includes(armorType)) return 0;
+        const baseAC = item.system.armor?.value ?? 0;
+        return armorType === 'shield' ? baseAC : Math.max(0, baseAC - 10);
+    }
+
+    /**
      * Get the AC penalty for armor with notches.
-     * Each effective notch = -1 AC.
+     * Each effective notch = -1 AC, capped at the armor's base AC bonus.
+     * If penalty meets or exceeds the AC bonus, the armor is shattered.
      */
     static getArmorACPenalty(item) {
         if (item.type !== 'equipment') return 0;
         const armorType = item.system.type?.value || item.system.armor?.type;
         if (!['light', 'medium', 'heavy', 'shield'].includes(armorType)) return 0;
-        return this.getEffectiveNotches(item);
+        const notches = this.getEffectiveNotches(item);
+        const acBonus = this.getArmorACBonus(item);
+        return Math.min(notches, acBonus);
     }
 
     /**
@@ -410,7 +434,7 @@ export class NotchCalculator {
             if (!item.system.equipped) continue;
             const armorType = item.system.type?.value || item.system.armor?.type;
             if (!['light', 'medium', 'heavy', 'shield'].includes(armorType)) continue;
-            penalty += this.getEffectiveNotches(item);
+            penalty += this.getArmorACPenalty(item);
         }
         return penalty;
     }
