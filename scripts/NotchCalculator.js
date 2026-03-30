@@ -64,20 +64,15 @@ export class NotchCalculator {
             const notches = this.getEffectiveNotches(item);
             if (notches === 0) return false;
 
-            // Read ORIGINAL denomination from source data (not the already-degraded derived data)
+            // Read ORIGINAL values from source data (not the already-degraded derived data)
             const origDenom = item._source?.system?.damage?.base?.denomination
                 || item.system.damage?.base?.denomination;
             if (!origDenom) return false;
+            const origNum = item._source?.system?.damage?.base?.number
+                || item.system.damage?.base?.number || 1;
 
-            // Count steps from original denomination to 0 dice
-            let denom = origDenom;
-            let steps = 0;
-            while (denom > 0) {
-                const idx = DIE_CHAIN.indexOf(`d${denom}`);
-                denom = (idx >= 0 && idx < DIE_CHAIN.length - 1)
-                    ? parseInt(DIE_CHAIN[idx + 1].slice(1)) : 0;
-                steps++;
-            }
+            // Total steps accounts for each individual die in multi-die weapons
+            const steps = this._totalDegradeSteps(origNum, origDenom);
             // steps = notches to reach "modifiers only", steps+1 = shattered
             if (notches > steps) return true;
         }
@@ -170,8 +165,88 @@ export class NotchCalculator {
     // ─── Weapon Die Degradation ─────────────────────────────────────
 
     /**
+     * Degrade an array of individual dice sizes by one notch step.
+     * Each notch steps down the largest die: d12→d10→d8→d6→d4→removed (+1 flat).
+     *
+     * @param {number[]} dice - Array of die sizes (e.g. [6, 6] for 2d6)
+     * @param {number} notches - Number of notch steps to apply
+     * @returns {{ dice: number[], flatBonus: number }} Remaining dice and accumulated flat bonus
+     */
+    static _degradeDiceArray(dice, notches) {
+        dice = [...dice]; // don't mutate the input
+        let flatBonus = 0;
+        let remaining = notches;
+
+        while (remaining > 0 && dice.length > 0) {
+            // Find the largest die
+            let maxIdx = 0;
+            for (let i = 1; i < dice.length; i++) {
+                if (dice[i] > dice[maxIdx]) maxIdx = i;
+            }
+
+            const dieStr = `d${dice[maxIdx]}`;
+            const chainIdx = DIE_CHAIN.indexOf(dieStr);
+
+            if (chainIdx >= 0 && chainIdx < DIE_CHAIN.length - 1) {
+                // Step down: d12→d10→d8→d6→d4
+                dice[maxIdx] = parseInt(DIE_CHAIN[chainIdx + 1].slice(1));
+            } else {
+                // At d4 (end of chain) or unknown — remove die, add +1 flat
+                dice.splice(maxIdx, 1);
+                flatBonus += 1;
+            }
+            remaining--;
+        }
+
+        return { dice, flatBonus };
+    }
+
+    /**
+     * Format a dice array + flat bonus into a human-readable string.
+     * Groups identical dice: [6, 4] → "1d6+1d4", [4, 4] → "2d4", etc.
+     * @param {number[]} dice
+     * @param {number} flatBonus
+     * @returns {string}
+     */
+    static _formatDiceArray(dice, flatBonus) {
+        if (dice.length === 0) {
+            return flatBonus > 0 ? String(flatBonus) : '0';
+        }
+
+        // Group dice by size (descending)
+        const groups = {};
+        for (const d of dice) {
+            groups[d] = (groups[d] || 0) + 1;
+        }
+        const sortedDenoms = Object.keys(groups).map(Number).sort((a, b) => b - a);
+        const parts = sortedDenoms.map(d => `${groups[d]}d${d}`);
+        if (flatBonus > 0) parts.push(String(flatBonus));
+        return parts.join('+');
+    }
+
+    /**
+     * Calculate the total number of notch steps before a multi-die weapon
+     * reaches "modifiers only" (all dice removed).
+     * Each die takes (chain_length - chain_index) steps to be removed.
+     * @param {number} number - dice count
+     * @param {number} denomination - die size
+     * @returns {number}
+     */
+    static _totalDegradeSteps(number, denomination) {
+        const chainIdx = DIE_CHAIN.indexOf(`d${denomination}`);
+        if (chainIdx < 0) return 0;
+        // Steps per die: step down through the chain + 1 for removal at d4
+        const stepsPerDie = DIE_CHAIN.length - chainIdx;
+        return (number || 1) * stepsPerDie;
+    }
+
+    /**
      * Get the degraded damage for a weapon with notches.
      * Supports dnd5e 5.2+ DamageData format (number/denomination) and legacy parts format.
+     *
+     * Multi-die weapons degrade one die at a time:
+     *   2d6 → 1d6+1d4 → 2d4 → 1d4+1 → 2 (modifiers only)
+     *
      * @param {Item} item
      * @returns {{ original: string, degraded: string, notches: number } | null}
      */
@@ -189,24 +264,16 @@ export class NotchCalculator {
             const origDenom = base.denomination;
             const original = `${origNum}d${origDenom}`;
 
-            // Simulate degradation
-            let denom = origDenom;
-            let remaining = notches;
-            while (remaining > 0 && denom > 0) {
-                const idx = DIE_CHAIN.indexOf(`d${denom}`);
-                if (idx >= 0 && idx < DIE_CHAIN.length - 1) {
-                    denom = parseInt(DIE_CHAIN[idx + 1].slice(1));
-                } else {
-                    denom = 0;
-                }
-                remaining--;
-            }
+            // Expand to individual dice and degrade one at a time
+            const startDice = Array(origNum).fill(origDenom);
+            const { dice, flatBonus } = this._degradeDiceArray(startDice, notches);
 
             let degraded;
-            if (denom === 0) {
-                degraded = `1 + ${game.i18n ? game.i18n.localize('GLINVSLOTS.notch.modifiersOnly') : 'mod'}`;
+            if (dice.length === 0) {
+                const flat = flatBonus > 0 ? flatBonus : 1;
+                degraded = `${flat} + ${game.i18n ? game.i18n.localize('GLINVSLOTS.notch.modifiersOnly') : 'mod'}`;
             } else {
-                degraded = `${origNum}d${denom}`;
+                degraded = this._formatDiceArray(dice, flatBonus);
             }
             return { original, degraded, notches };
         }
@@ -228,50 +295,69 @@ export class NotchCalculator {
      * Degrade a structured DamageData object's number/denomination in-place.
      * Used by Item.prepareDerivedData to modify weapon damage at data-prep time.
      *
-     * Degradation chain per notch:
-     *   d12 → d10 → d8 → d6 → d4 → 0 (modifiers only) → shattered
+     * Each notch degrades ONE die at a time (the largest), not all dice at once:
+     *   2d6 → 1d6+1d4 → 2d4 → 1d4+1 → 2 (modifiers only)
+     *   1d8 → 1d6 → 1d4 → 1 (modifiers only)
      *
-     * For multi-die weapons (e.g. 2d6):
-     *   2d6 → 2d4 (step each down) → 0 dice → shattered
+     * Since DamageData only supports {number, denomination, bonus}, mixed dice
+     * (e.g. 1d6+1d4) are encoded as number=1, denomination=6, bonus="+1d4".
      *
-     * @param {Object} damageData - { number, denomination, ... }
+     * @param {Object} damageData - { number, denomination, bonus, ... }
      * @param {number} notches - effective notch count
      */
     static degradeDamageData(damageData, notches) {
         if (!damageData || notches <= 0) return;
-        // Already at 0 dice — nothing to degrade further
         if (!damageData.denomination) return;
 
-        let denom = damageData.denomination;
-        let remaining = notches;
+        const origNum = damageData.number || 1;
+        const origDenom = damageData.denomination;
 
-        while (remaining > 0 && denom > 0) {
-            const dieStr = `d${denom}`;
-            const chainIdx = DIE_CHAIN.indexOf(dieStr);
+        // Expand to individual dice and degrade one at a time
+        const startDice = Array(origNum).fill(origDenom);
+        const { dice, flatBonus } = this._degradeDiceArray(startDice, notches);
 
-            if (chainIdx >= 0 && chainIdx < DIE_CHAIN.length - 1) {
-                // Step down: d12→d10→d8→d6→d4
-                denom = parseInt(DIE_CHAIN[chainIdx + 1].slice(1));
-            } else {
-                // At d4 (end of chain) → next notch removes all dice (modifiers only)
-                denom = 0;
-            }
-            remaining--;
-        }
-
-        if (denom === 0) {
+        if (dice.length === 0) {
             // No dice left — modifiers only, minimum 1 damage.
             // Set to 1d1 so the die portion always contributes exactly 1,
             // and dnd5e still appends ability modifier + bonus.
             damageData.number = 1;
             damageData.denomination = 1;
+            if (flatBonus > 1) {
+                // flatBonus includes the 1 from d1, add the remainder
+                const extra = flatBonus - 1;
+                const existing = damageData.bonus || '';
+                damageData.bonus = existing ? `${existing} + ${extra}` : String(extra);
+            }
         } else {
-            damageData.denomination = denom;
+            // Group dice by size (descending)
+            const groups = {};
+            for (const d of dice) {
+                groups[d] = (groups[d] || 0) + 1;
+            }
+            const sortedDenoms = Object.keys(groups).map(Number).sort((a, b) => b - a);
+
+            // Primary dice: largest denomination group
+            damageData.number = groups[sortedDenoms[0]];
+            damageData.denomination = sortedDenoms[0];
+
+            // Extra dice and flat bonus go into bonus string
+            const bonusParts = [];
+            for (let i = 1; i < sortedDenoms.length; i++) {
+                const d = sortedDenoms[i];
+                bonusParts.push(`${groups[d]}d${d}`);
+            }
+            if (flatBonus > 0) bonusParts.push(String(flatBonus));
+
+            if (bonusParts.length > 0) {
+                const existing = damageData.bonus || '';
+                const newBonus = bonusParts.join(' + ');
+                damageData.bonus = existing ? `${existing} + ${newBonus}` : newBonus;
+            }
         }
     }
 
     /**
-     * Check if a weapon's dice are fully degraded (past d4, modifiers only).
+     * Check if a weapon's dice are fully degraded (all dice removed, modifiers only).
      * The next notch after this state should shatter the weapon.
      */
     static isWeaponFullyDegraded(item) {
@@ -279,25 +365,15 @@ export class NotchCalculator {
         const notches = this.getEffectiveNotches(item);
         if (notches === 0) return false;
 
-        // Read ORIGINAL denomination from source data
+        // Read ORIGINAL values from source data
         const origDenom = item._source?.system?.damage?.base?.denomination
             || item.system.damage?.base?.denomination;
         if (!origDenom) return true; // already no dice
+        const origNum = item._source?.system?.damage?.base?.number
+            || item.system.damage?.base?.number || 1;
 
-        // Count how many notches it takes to reach 0
-        let denom = origDenom;
-        let steps = 0;
-        while (denom > 0) {
-            const chainIdx = DIE_CHAIN.indexOf(`d${denom}`);
-            if (chainIdx >= 0 && chainIdx < DIE_CHAIN.length - 1) {
-                denom = parseInt(DIE_CHAIN[chainIdx + 1].slice(1));
-            } else {
-                denom = 0;
-            }
-            steps++;
-        }
-        // If effective notches >= steps, dice are gone
-        // If effective notches > steps, weapon should be shattered
+        // Total steps accounts for each individual die in multi-die weapons
+        const steps = this._totalDegradeSteps(origNum, origDenom);
         return notches >= steps;
     }
 
