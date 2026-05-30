@@ -1,0 +1,223 @@
+/* =====================================================================
+ * GLUniverse — Active Inventory  ·  Design System Foundation
+ * ---------------------------------------------------------------------
+ * Shared visual language inherited from gluniverse-clocks-and-tracker:
+ *   · Oxanium variable display font (bundled locally, offline-safe)
+ *   · Dark frosted-glass HUD surfaces with layered depth + glow
+ *   · Tactile, springy motion (cubic-bezier overshoot)
+ *
+ * Tokens are namespaced under `.glinv-scope`. Every piece of UI this
+ * module injects into a Tidy 5e sheet is wrapped in `.glinv-scope` so
+ * the dark HUD aesthetic applies regardless of the host sheet's theme.
+ * ===================================================================== */
+
+/* ─── Bundled Font (variable, 200–800) ──────────────────────────────── */
+@font-face {
+    font-family: 'Oxanium';
+    font-style: normal;
+    font-weight: 200 800;
+    font-display: swap;
+    src: url('../fonts/Oxanium-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6,
+        U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC,
+        U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'Oxanium';
+    font-style: normal;
+    font-weight: 200 800;
+    font-display: swap;
+    src: url('../fonts/Oxanium-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7,
+        U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F,
+        U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F,
+        U+A720-A7FF;
+}
+
+/* ─── Design Tokens ─────────────────────────────────────────────────── */
+.glinv-scope {
+    /* Typography */
+    --glinv-font: 'Oxanium', 'Segoe UI', system-ui, sans-serif;
+
+    /* Ink & surface */
+    --glinv-ink: #eef1f7;
+    --glinv-muted: #98a2b6;
+    --glinv-hair: rgba(255, 255, 255, 0.08);
+    --glinv-edge: rgba(255, 255, 255, 0.13);
+    --glinv-surface: rgba(18, 22, 33, 0.72);
+    --glinv-surface-2: rgba(26, 34, 51, 0.85);
+    --glinv-well: rgba(0, 0, 0, 0.28);
+
+    /* Accent (periwinkle — primary brand tint) */
+    --glinv-tint: #6b86d6;
+    --glinv-tint-2: #1a2233;
+    --glinv-glow: rgba(120, 150, 225, 0.5);
+    --glinv-glow-soft: rgba(120, 150, 225, 0.18);
+
+    /* Semantic states */
+    --glinv-good: #67d39b;
+    --glinv-good-glow: rgba(103, 211, 155, 0.45);
+    --glinv-warn: #e7b955;
+    --glinv-warn-glow: rgba(231, 185, 85, 0.45);
+    --glinv-danger: #e0584f;
+    --glinv-danger-glow: rgba(224, 88, 79, 0.55);
+    --glinv-danger-soft: rgba(224, 88, 79, 0.22);
+
+    /* Quickdraw / gold highlight */
+    --glinv-gold: #f0c75e;
+    --glinv-gold-glow: rgba(240, 199, 94, 0.5);
+
+    /* Geometry */
+    --glinv-radius: 13px;
+    --glinv-radius-sm: 8px;
+    --glinv-radius-pill: 99px;
+
+    /* Depth */
+    --glinv-shadow-raised:
+        0 18px 48px rgba(0, 0, 0, 0.55),
+        0 2px 0 rgba(0, 0, 0, 0.4),
+        inset 0 1px 0 rgba(255, 255, 255, 0.14),
+        inset 0 -10px 24px rgba(0, 0, 0, 0.34),
+        0 0 40px var(--glinv-glow-soft);
+    --glinv-shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+    --glinv-shadow-chip:
+        0 4px 12px rgba(0, 0, 0, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.12);
+
+    /* Motion */
+    --glinv-ease: cubic-bezier(0.4, 0, 0.2, 1);
+    --glinv-ease-spring: cubic-bezier(0.34, 1.56, 0.5, 1);
+    --glinv-ease-soft: cubic-bezier(0.2, 0.8, 0.2, 1);
+    --glinv-dur: 0.3s;
+    --glinv-dur-pop: 0.5s;
+
+    font-family: var(--glinv-font);
+    color: var(--glinv-ink);
+}
+
+/* ─── Glass Surface Utility ─────────────────────────────────────────── */
+.glinv-glass {
+    position: relative;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 38%),
+        var(--glinv-surface);
+    border: 1px solid var(--glinv-edge);
+    border-radius: var(--glinv-radius);
+    box-shadow: var(--glinv-shadow-raised);
+    backdrop-filter: blur(16px) saturate(1.15);
+    -webkit-backdrop-filter: blur(16px) saturate(1.15);
+}
+
+/* Top sheen + ambient halo, applied to glass containers that opt in. */
+.glinv-glass::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background: radial-gradient(70% 150% at 50% -50%, var(--glinv-glow-soft), transparent 66%);
+    opacity: 0.9;
+}
+
+/* Gradient text for headline numerals. */
+.glinv-text-gradient {
+    background: linear-gradient(180deg, #fff, #ccd5e8);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+/* ─── Keyframe Library ──────────────────────────────────────────────── */
+
+/* Slot box filling in — springy scale pop. */
+@keyframes glinv-slot-pop {
+    0% { transform: scale(0.2); opacity: 0; }
+    60% { transform: scale(1.18); opacity: 1; }
+    100% { transform: scale(1); }
+}
+
+/* Encumbrance / pool bar fill — smooth width grow with a glow flash. */
+@keyframes glinv-bar-flash {
+    0% { box-shadow: 0 0 0 var(--glinv-glow); }
+    50% { box-shadow: 0 0 18px var(--glinv-glow); }
+    100% { box-shadow: 0 0 6px var(--glinv-glow-soft); }
+}
+
+/* Value change indicator rising/falling. */
+@keyframes glinv-float-up {
+    0% { transform: translateY(6px); opacity: 0; }
+    25% { opacity: 1; }
+    100% { transform: translateY(-14px); opacity: 0; }
+}
+@keyframes glinv-float-down {
+    0% { transform: translateY(-6px); opacity: 0; }
+    25% { opacity: 1; }
+    100% { transform: translateY(14px); opacity: 0; }
+}
+
+/* Notch struck into an item — a quick recoil + red flare. */
+@keyframes glinv-notch-strike {
+    0% { transform: scale(1); }
+    20% { transform: scale(1.4) rotate(-8deg); filter: drop-shadow(0 0 6px var(--glinv-danger-glow)); }
+    100% { transform: scale(1) rotate(0); }
+}
+
+/* Item shatter — violent shake then settle. */
+@keyframes glinv-shatter {
+    0% { transform: translate(0, 0) rotate(0); }
+    15% { transform: translate(-2px, 1px) rotate(-3deg); }
+    30% { transform: translate(2px, -1px) rotate(3deg); }
+    45% { transform: translate(-2px, 2px) rotate(-2deg); }
+    60% { transform: translate(2px, -1px) rotate(2deg); }
+    100% { transform: translate(0, 0) rotate(0); }
+}
+
+/* Ammo die stepping down — tumble + shrink to the smaller face. */
+@keyframes glinv-die-step {
+    0% { transform: rotate(0) scale(1); }
+    50% { transform: rotate(180deg) scale(0.78); filter: brightness(1.4); }
+    100% { transform: rotate(360deg) scale(1); }
+}
+
+/* Dice pool die entering. */
+@keyframes glinv-die-roll {
+    0% { transform: scale(0) rotate(-90deg); opacity: 0; }
+    70% { transform: scale(1.15) rotate(8deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0); }
+}
+
+/* Dice pool die discarded — red flare and tumble out. */
+@keyframes glinv-die-discard {
+    0% { transform: scale(1) rotate(0); opacity: 1; }
+    40% { transform: scale(1.2); filter: brightness(1.6) drop-shadow(0 0 8px var(--glinv-danger-glow)); }
+    100% { transform: scale(0.2) rotate(120deg); opacity: 0; }
+}
+
+/* Breathing dread glow for shattered / overburdened states. */
+@keyframes glinv-dread {
+    0%, 100% { box-shadow: 0 0 10px var(--glinv-danger-soft), inset 0 0 12px var(--glinv-danger-soft); }
+    50% { box-shadow: 0 0 26px var(--glinv-danger-glow), inset 0 0 18px var(--glinv-danger-soft); }
+}
+
+/* Quickdraw shimmer sweep. */
+@keyframes glinv-sweep {
+    0% { transform: translateX(-120%); }
+    100% { transform: translateX(120%); }
+}
+
+/* Soft attention pulse for newly-injected panels. */
+@keyframes glinv-fade-in {
+    0% { opacity: 0; transform: translateY(6px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Reduced Motion ────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    .glinv-scope *,
+    .glinv-scope *::before,
+    .glinv-scope *::after {
+        animation-duration: 0.001ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.001ms !important;
+    }
+}

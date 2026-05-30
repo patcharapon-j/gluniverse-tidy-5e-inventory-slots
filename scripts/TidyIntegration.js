@@ -6,71 +6,144 @@ import { DicePoolCalculator } from './DicePoolCalculator.js';
 
 /**
  * Handles all integration points with the Tidy 5e Sheet module.
- * Uses a floating panel attached to the bottom of the character sheet
- * to avoid Svelte re-render wipes.
+ *
+ * v3 architecture: registers inline content through the Tidy 5e v13 API
+ * (`register*Content` with `renderScheme: 'handlebars'`), so our UI lives
+ * inside the sheet and is re-applied automatically across Svelte re-renders.
+ * No floating panels, no requestAnimationFrame loop, no MutationObserver.
  */
 export class TidyIntegration {
 
     static _api = null;
-    /** Map<actorId, HTMLElement> — floating panels keyed by actor */
-    static _panels = new Map();
-    /** RAF handle for position tracking */
-    static _rafHandle = null;
-    /** Map<itemId, HTMLElement> — floating item config panels */
-    static _itemPanels = new Map();
+
+    /**
+     * Selector inside the inventory tab that our slot panel is injected after.
+     * Tidy 5e renders a `.encumbrance` meter on the character inventory tab; we
+     * anchor to it so the panel sits directly beneath the (replaced) bar.
+     *
+     * ── VERIFY IN-APP ── If the panel does not appear, this is the one knob to
+     * adjust: set it to a selector that exists on the open inventory tab (e.g.
+     * `[data-tidy-sheet-part="item-table"]` with position 'beforebegin').
+     */
+    static ACTOR_ANCHOR = { selector: '.encumbrance', position: 'afterend' };
 
     static init(api) {
         this._api = api;
-        console.log(`${MODULE_ID} | Tidy 5e API received, registering integrations`);
-        this._hookSheetRender();
-        this._setupDomObserver();
-        this._startPositionLoop();
+        console.log(`${MODULE_ID} | Tidy 5e API received — registering inline content (v3 architecture)`);
+        this._registerContent();
     }
 
-    // ─── Sheet Render Hooks ──────────────────────────────────────────
+    // ─── Registration-API Integration (Quadrone + Classic) ───────────
+    //
+    // As of Tidy 5e v13, `register*Content` fans out to BOTH the Classic and
+    // Quadrone runtimes and, with `renderScheme: 'handlebars'`, automatically
+    // re-injects across Svelte re-renders. This replaces the old floating-panel
+    // + requestAnimationFrame + body-wide MutationObserver machinery entirely:
+    // content lives *inside* the sheet, scrolls and drags with it, and never
+    // leaks listeners (each render hands us fresh nodes).
 
-    static _hookSheetRender() {
-        // Tidy 5e's own (Classic) render hook — harmless if it never fires.
-        Hooks.on('tidy5e-sheet.renderActorSheet', (app, element, data, forced) => {
-            this._processActorSheet(app, element);
+    static _registerContent() {
+        const api = this._api;
+        if (!api?.models?.HtmlContent) {
+            console.error(`${MODULE_ID} | Tidy 5e HtmlContent model unavailable — is tidy5e-sheet up to date (v13+)?`);
+            return;
+        }
+        const { HtmlContent } = api.models;
+
+        // — Actor: slot panel + per-row badges, injected into the inventory tab.
+        const actorContent = () => new HtmlContent({
+            html: () => `<div class="glinv-scope glinv-actor-root" data-tidy-render-scheme="handlebars"></div>`,
+            renderScheme: 'handlebars',
+            injectParams: this.ACTOR_ANCHOR,
+            enabled: () => this._anyFeatureEnabled(),
+            onRender: (params) => this._onActorRender(params),
         });
+        try {
+            api.registerCharacterContent(actorContent(), { layout: 'all' });
+            api.registerNpcContent(actorContent(), { layout: 'all' });
+        } catch (err) {
+            console.error(`${MODULE_ID} | Failed to register actor content:`, err);
+        }
 
-        // Application V1 render hooks (Foundry v13 and earlier). These are no-ops
-        // on v14, where Application V1 has been removed, but remain for back-compat.
-        Hooks.on('renderActorSheet', (app, html, data) => {
-            try { if (!this._api?.isTidy5eSheet(app)) return; } catch { return; }
-            this._processActorSheet(app, unwrapElement(html));
+        // — Item: configuration panel, injected into the item sheet body.
+        const itemContent = () => new HtmlContent({
+            html: () => `<div class="glinv-scope glinv-item-root" data-tidy-render-scheme="handlebars"></div>`,
+            renderScheme: 'handlebars',
+            enabled: () => this._anyFeatureEnabled(),
+            onRender: (params) => this._onItemRender(params),
         });
+        try {
+            api.registerItemContent(itemContent(), { layout: 'all' });
+        } catch (err) {
+            console.error(`${MODULE_ID} | Failed to register item content:`, err);
+        }
+    }
 
-        Hooks.on('renderItemSheet', (app, html, data) => {
-            if (!this._anyFeatureEnabled()) return;
-            const item = app.document || app.item || app.object;
-            if (!item) return;
-            this._injectItemTab(unwrapElement(html), item);
-        });
+    /** Escape a string for safe interpolation into innerHTML. */
+    static _esc(str) {
+        return String(str ?? '').replace(/[&<>"']/g, (c) => (
+            { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+        ));
+    }
 
-        // Application V2 render handler. On Foundry v14 ApplicationV2 fires the
-        // `renderApplicationV2` hook; on v13 the generic `renderApplication` hook
-        // is also dispatched. We register the same handler on both names so the
-        // module works across versions, and guard against double-processing.
-        const onAppV2Render = (app, _result, _options) => {
-            const el = unwrapElement(app?.element);
-            if (!el) return;
+    // ─── Render Callbacks ────────────────────────────────────────────
 
-            // Tidy 5e actor sheets (Quadrone / AppV2).
-            if (app.constructor?.name?.includes('Tidy5e')) {
-                this._processActorSheet(app, el);
+    static _onActorRender(params) {
+        const actor = params.app?.document;
+        const root = params.element?.classList?.contains('glinv-actor-root')
+            ? params.element
+            : params.element?.querySelector?.('.glinv-actor-root');
+        const sheetEl = unwrapElement(params.app?.element);
+        if (!actor || actor.documentName !== 'Actor' || !root || !sheetEl) return;
+        if (actor.type === 'npc' && !getSetting('enableForNPCs')) { root.remove(); return; }
+        if (actor.type !== 'character' && actor.type !== 'npc') { root.remove(); return; }
+
+        try {
+            // Theme: always the dark HUD, but tag the host theme for fine-tuning.
+            root.classList.toggle('glinv-host-dark', sheetEl.classList.contains('theme-dark'));
+
+            if (getSetting('enableSlotSystem')) {
+                root.innerHTML = this._buildSlotPanelHtml(actor);
+                const btn = root.querySelector('[data-glinv-settings]');
+                if (btn) btn.addEventListener('click', (ev) => {
+                    ev.preventDefault();
+                    ev.stopPropagation();
+                    this._openSettingsDialog(actor);
+                });
+            } else {
+                root.innerHTML = '';
             }
 
-            // Any item sheet (Tidy or core) — annotate the slot/notch config panel.
-            if (this._anyFeatureEnabled()) {
-                const doc = app.document || app.item || app.object;
-                if (doc?.documentName === 'Item') this._injectItemTab(el, doc);
-            }
-        };
+            // Annotate inventory rows across the whole sheet (idempotent).
+            this._annotateBulkOnRows(sheetEl, actor);
+        } catch (err) {
+            console.error(`${MODULE_ID} | Error rendering actor content:`, err);
+        }
+    }
 
-        Hooks.on('renderApplicationV2', onAppV2Render);
-        Hooks.on('renderApplication', onAppV2Render);
+    static _onItemRender(params) {
+        const item = params.app?.document;
+        const root = params.element?.classList?.contains('glinv-item-root')
+            ? params.element
+            : params.element?.querySelector?.('.glinv-item-root');
+        const sheetEl = unwrapElement(params.app?.element);
+        if (!item || item.documentName !== 'Item' || !root) return;
+
+        const nonPhysical = ['spell', 'feat', 'class', 'subclass', 'background', 'race', 'facility'];
+        if (nonPhysical.includes(item.type)) { root.remove(); return; }
+
+        try {
+            let html = '';
+            if (getSetting('enableSlotSystem')) html += this._buildBulkConfigHtml(item);
+            if (getSetting('enableWearAndTear')) html += this._buildNotchConfigHtml(item);
+            if (getSetting('enableAmmunitionDice')) html += this._buildAmmoConfigHtml(item);
+            if (getSetting('enableDicePool')) html += this._buildDicePoolConfigHtml(item);
+            root.innerHTML = html;
+            // Fresh node each render → binding here cannot leak.
+            this._bindAllTabEvents(root, item, sheetEl);
+        } catch (err) {
+            console.error(`${MODULE_ID} | Error rendering item content:`, err);
+        }
     }
 
     /** True when at least one of the module's features is enabled. */
@@ -79,132 +152,13 @@ export class TidyIntegration {
             || getSetting('enableAmmunitionDice') || getSetting('enableDicePool');
     }
 
-    /**
-     * MutationObserver: detect Tidy5e sheet content changes (Svelte re-renders).
-     * For the floating panel we only need to re-annotate bulk on rows and
-     * update the panel data. We no longer inject the grid into the sheet DOM.
-     */
-    static _setupDomObserver() {
-        const observer = new MutationObserver((mutations) => {
-            if (!getSetting('enableSlotSystem') && !getSetting('enableWearAndTear') && !getSetting('enableAmmunitionDice') && !getSetting('enableDicePool')) return;
-
-            const sheetsToProcess = new Set();
-
-            for (const mutation of mutations) {
-                // Detect new content being added (Svelte render)
-                for (const node of mutation.addedNodes) {
-                    if (node.nodeType !== Node.ELEMENT_NODE) continue;
-
-                    const sheet = node.closest?.('.tidy5e-sheet') ||
-                        (node.classList?.contains('tidy5e-sheet') ? node : null);
-                    if (!sheet) continue;
-
-                    // Skip our own mutations
-                    if (node.classList?.contains('glinv-item-slots') ||
-                        node.classList?.contains('glinv-quickdraw-row')) continue;
-
-                    sheetsToProcess.add(sheet);
-                }
-            }
-
-            for (const sheet of sheetsToProcess) {
-                clearTimeout(sheet._glinvTimer);
-                sheet._glinvTimer = setTimeout(() => {
-                    this._processSheetElement(sheet);
-                }, 200);
-            }
-        });
-
-        if (document.body) {
-            observer.observe(document.body, { childList: true, subtree: true });
-        }
-        this._observer = observer;
-
-        // Scan for already-open sheets (multiple passes for Svelte timing)
-        for (const delay of [500, 1500, 3000]) {
-            setTimeout(() => this._scanOpenSheets(), delay);
-        }
-    }
-
-    static _scanOpenSheets() {
-        if (!getSetting('enableSlotSystem')) return;
-        const apps = foundry.applications?.instances
-            ? [...foundry.applications.instances.values()]
-            : Object.values(ui.windows || {});
-
-        for (const app of apps) {
-            const name = app.constructor?.name || '';
-            if (!name.includes('Tidy5e')) continue;
-
-            const doc = app.document || app.actor;
-            if (!doc || doc.documentName !== 'Actor') continue;
-
-            this._processActorSheet(app, app.element);
-        }
-    }
-
-    static _processSheetElement(sheetEl) {
-        const slotsEnabled = getSetting('enableSlotSystem');
-        const wearEnabled = getSetting('enableWearAndTear');
-        const ammoEnabled = getSetting('enableAmmunitionDice');
-        const poolEnabled = getSetting('enableDicePool');
-        if (!slotsEnabled && !wearEnabled && !ammoEnabled && !poolEnabled) return;
-        if (!sheetEl) return;
-
-        const apps = foundry.applications?.instances
-            ? [...foundry.applications.instances.values()]
-            : Object.values(ui.windows || {});
-
-        const app = apps.find(a => {
-            const el = unwrapElement(a.element);
-            return el === sheetEl;
-        });
-        if (!app) return;
-
-        const actor = app.document || app.actor;
-        if (!actor) return;
-
-        if (actor.documentName === 'Actor' && (slotsEnabled || wearEnabled || ammoEnabled || poolEnabled)) {
-            if (actor.type === 'npc' && !getSetting('enableForNPCs')) return;
-            if (actor.type !== 'character' && actor.type !== 'npc') return;
-            if (slotsEnabled) this._updatePanel(actor, sheetEl);
-            this._annotateBulkOnRows(sheetEl, actor);
-        }
-
-        if (actor.documentName === 'Item') {
-            this._injectItemTab(sheetEl, actor);
-        }
-    }
-
-    static _processActorSheet(app, element) {
-        if (!getSetting('enableSlotSystem') && !getSetting('enableWearAndTear') && !getSetting('enableAmmunitionDice') && !getSetting('enableDicePool')) return;
-
-        const actor = app.document || app.actor;
-        if (!actor) return;
-
-        if (actor.documentName === 'Actor') {
-            if (actor.type === 'npc' && !getSetting('enableForNPCs')) return;
-            if (actor.type !== 'character' && actor.type !== 'npc') return;
-
-            const el = unwrapElement(element);
-            if (!el) return;
-
-            try {
-                if (getSetting('enableSlotSystem')) this._updatePanel(actor, el);
-                this._annotateBulkOnRows(el, actor);
-            } catch (err) {
-                console.error(`${MODULE_ID} | Error processing actor sheet:`, err);
-            }
-        }
-    }
-
-    // ─── Floating Panel ──────────────────────────────────────────────
+    // ─── Slot Panel HTML ─────────────────────────────────────────────
 
     /**
-     * Create or update the floating slot panel for an actor.
-     * The panel lives in document.body, completely outside Svelte's control.
+     * Build the inline slot panel markup for an actor. Pure string builder —
+     * the caller injects it into the registered actor content root.
      */
-    static _updatePanel(actor, sheetEl) {
+    static _buildSlotPanelHtml(actor) {
         const inventory = SlotCalculator.calculateInventory(actor);
         const breakdown = SlotCalculator.getSlotBreakdown(actor);
         const { maxSlots, slotsUsed, overburdenedMax, encumbranceState, quickdrawCount, maxQuickdraw } = inventory;
@@ -298,125 +252,10 @@ export class TidyIntegration {
                 ${boxesHtml}
             </div>`;
 
-        // Get or create the panel element
-        let panel = this._panels.get(actor.id);
-        if (!panel) {
-            panel = document.createElement('div');
-            panel.classList.add('glinv-floating-panel');
-            panel.dataset.actorId = actor.id;
-            document.body.appendChild(panel);
-            this._panels.set(actor.id, panel);
-        }
-
-        // Detect theme from sheet element
-        const isQuadrone = sheetEl.classList.contains('quadrone');
-        const isDark = sheetEl.classList.contains('theme-dark') || sheetEl.classList.contains('tidy5e-dark');
-        panel.classList.toggle('glinv-panel-quadrone', isQuadrone);
-        panel.classList.toggle('glinv-panel-dark', isDark);
-
-        // Copy --t5e-* CSS variables from sheet to panel for theme matching
-        const sheetStyles = getComputedStyle(sheetEl);
-        const t5eVars = [
-            '--t5e-background',
-            '--t5e-faint-color',
-            '--t5e-primary-color',
-            '--t5e-secondary-color',
-            '--t5e-primary-accent-color',
-            '--t5e-header-background',
-            '--t5e-separator-color',
-            '--t5e-inspiration-inspired-text-shadow-color',
-            '--t5e-body-font-family',
-        ];
-        for (const v of t5eVars) {
-            const val = sheetStyles.getPropertyValue(v);
-            if (val) panel.style.setProperty(v, val);
-        }
-
-        // Update class states
-        panel.classList.remove('glinv-overburdened', 'glinv-encumbered', 'glinv-heavy');
-        if (stateClass) panel.classList.add(stateClass);
-
-        panel.title = tooltip;
-        panel.innerHTML = innerHtml;
-
-        // Store reference to the sheet element for positioning
-        panel._sheetEl = sheetEl;
-        panel.style.display = '';
-
-        // Bind settings button
-        const btn = panel.querySelector('[data-glinv-settings]');
-        if (btn) {
-            btn.addEventListener('click', (ev) => {
-                ev.preventDefault();
-                ev.stopPropagation();
-                this._openSettingsDialog(actor);
-            });
-        }
-
-        // Position immediately
-        this._positionPanel(panel);
-    }
-
-    /**
-     * Position a floating panel at the bottom of its associated sheet.
-     */
-    static _positionPanel(panel) {
-        const sheetEl = panel._sheetEl;
-        if (!sheetEl || !sheetEl.isConnected) {
-            panel.style.display = 'none';
-            return;
-        }
-
-        const rect = sheetEl.getBoundingClientRect();
-        const panelWidth = rect.width;
-
-        panel.style.position = 'fixed';
-        panel.style.left = `${rect.left}px`;
-        panel.style.top = `${rect.bottom}px`;
-        panel.style.width = `${panelWidth}px`;
-        panel.style.zIndex = String((parseInt(sheetEl.style.zIndex) || 100) - 1);
-    }
-
-    /**
-     * Continuous position tracking loop — keeps panels anchored to their sheets.
-     * Also removes panels for sheets that have been closed.
-     */
-    static _startPositionLoop() {
-        const tick = () => {
-            // Actor sheet panels (bottom)
-            for (const [actorId, panel] of this._panels) {
-                const sheetEl = panel._sheetEl;
-                if (!sheetEl || !sheetEl.isConnected) {
-                    panel.remove();
-                    this._panels.delete(actorId);
-                    continue;
-                }
-                this._positionPanel(panel);
-            }
-            // Item sheet panels (right side)
-            for (const [itemId, panel] of this._itemPanels) {
-                const sheetEl = panel._sheetEl;
-                if (!sheetEl || !sheetEl.isConnected) {
-                    panel.remove();
-                    this._itemPanels.delete(itemId);
-                    continue;
-                }
-                this._positionItemPanel(panel);
-            }
-            this._rafHandle = requestAnimationFrame(tick);
-        };
-        this._rafHandle = requestAnimationFrame(tick);
-    }
-
-    /**
-     * Remove a panel for a specific actor (e.g., when settings change).
-     */
-    static _removePanel(actorId) {
-        const panel = this._panels.get(actorId);
-        if (panel) {
-            panel.remove();
-            this._panels.delete(actorId);
-        }
+        return `
+            <div class="glinv-slot-panel glinv-glass ${stateClass}" title="${this._esc(tooltip)}">
+                ${innerHtml}
+            </div>`;
     }
 
     // ─── Settings Dialog (GM Override) ───────────────────────────────
@@ -437,6 +276,7 @@ export class TidyIntegration {
         ].map(s => `<option value="${s.value}" ${s.value === currentSizeOverride ? 'selected' : ''}>${s.label}</option>`).join('');
 
         const content = `
+            <div class="glinv-scope">
             <form class="glinv-override-form">
                 <p style="margin-top:0;font-size:0.85rem;opacity:0.8;">
                     ${game.i18n.localize('GLINVSLOTS.dialog.calculatedSlots')}: <strong>${breakdown.total}</strong>
@@ -453,7 +293,8 @@ export class TidyIntegration {
                 <p style="font-size:0.75rem;opacity:0.6;margin-bottom:0;">
                     ${game.i18n.localize('GLINVSLOTS.dialog.overrideHint')}
                 </p>
-            </form>`;
+            </form>
+            </div>`;
 
         const parseForm = (root) => ({
             sizeOverride: root.querySelector('[name="sizeOverride"]')?.value || '',
@@ -650,98 +491,16 @@ export class TidyIntegration {
         </span>`;
     }
 
-    // ─── Item Config Floating Panel ─────────────────────────────────
-
     /**
-     * Create or update a compact floating panel attached to the right side
-     * of the item sheet. Lives in document.body to survive Svelte re-renders.
+     * Refresh the item config panel after a flag/item write.
+     *
+     * With the v3 registration architecture this is a no-op: writing a flag or
+     * updating the item is an embedded-document change, which makes Tidy re-run
+     * our `renderScheme: 'handlebars'` content and call `_onItemRender` again
+     * with fresh nodes. Event handlers therefore retain their many call sites
+     * without re-binding to a stale, ever-growing panel (the old leak).
      */
-    static _injectItemTab(element, item) {
-        if (!element) return;
-
-        const nonPhysical = ['spell', 'feat', 'class', 'subclass', 'background', 'race', 'facility'];
-        if (nonPhysical.includes(item.type)) return;
-
-        let panel = this._itemPanels.get(item.id);
-        if (!panel) {
-            panel = document.createElement('div');
-            panel.classList.add('glinv-item-panel');
-            panel.dataset.itemId = item.id;
-            document.body.appendChild(panel);
-            this._itemPanels.set(item.id, panel);
-        }
-
-        // Copy theme from sheet
-        const isDark = element.classList.contains('theme-dark') || element.classList.contains('tidy5e-dark');
-        const isQuadrone = element.classList.contains('quadrone');
-        panel.classList.toggle('glinv-panel-dark', isDark);
-        panel.classList.toggle('glinv-panel-quadrone', isQuadrone);
-
-        const sheetStyles = getComputedStyle(element);
-        const t5eVars = [
-            '--t5e-background', '--t5e-faint-color', '--t5e-primary-color',
-            '--t5e-secondary-color', '--t5e-primary-accent-color',
-            '--t5e-header-background', '--t5e-separator-color', '--t5e-body-font-family',
-        ];
-        for (const v of t5eVars) {
-            const val = sheetStyles.getPropertyValue(v);
-            if (val) panel.style.setProperty(v, val);
-        }
-
-        // Build content
-        let html = '<div class="glinv-item-panel-inner">';
-        if (getSetting('enableSlotSystem')) html += this._buildBulkConfigHtml(item);
-        if (getSetting('enableWearAndTear')) html += this._buildNotchConfigHtml(item);
-        if (getSetting('enableAmmunitionDice')) html += this._buildAmmoConfigHtml(item);
-        if (getSetting('enableDicePool')) html += this._buildDicePoolConfigHtml(item);
-        html += '</div>';
-
-        panel.innerHTML = html;
-        panel._sheetEl = element;
-        panel.style.display = '';
-
-        // Bind events
-        this._bindAllTabEvents(panel, item, element);
-
-        // Position immediately
-        this._positionItemPanel(panel);
-    }
-
-    /**
-     * Position an item panel to the right of its item sheet.
-     */
-    static _positionItemPanel(panel) {
-        const sheetEl = panel._sheetEl;
-        if (!sheetEl || !sheetEl.isConnected) {
-            panel.style.display = 'none';
-            return;
-        }
-
-        const rect = sheetEl.getBoundingClientRect();
-        panel.style.position = 'fixed';
-        panel.style.left = `${rect.right + 4}px`;
-        panel.style.top = `${rect.top}px`;
-        panel.style.maxHeight = `${rect.height}px`;
-        panel.style.zIndex = String((parseInt(sheetEl.style.zIndex) || 100) - 1);
-    }
-
-    /**
-     * Rebuild floating item panel content (for real-time updates).
-     */
-    static _refreshItemTab(element, item) {
-        const panel = this._itemPanels.get(item.id);
-        if (!panel) return;
-
-        let html = '<div class="glinv-item-panel-inner">';
-        if (getSetting('enableSlotSystem')) html += this._buildBulkConfigHtml(item);
-        if (getSetting('enableWearAndTear')) html += this._buildNotchConfigHtml(item);
-        if (getSetting('enableAmmunitionDice')) html += this._buildAmmoConfigHtml(item);
-        if (getSetting('enableDicePool')) html += this._buildDicePoolConfigHtml(item);
-        html += '</div>';
-
-        panel.innerHTML = html;
-        this._bindAllTabEvents(panel, item, element);
-    }
+    static _refreshItemTab(_element, _item) { /* reactive — handled by Tidy re-render */ }
 
     // ─── Bulk Config HTML ───────────────────────────────────────────
 
@@ -1104,7 +863,7 @@ export class TidyIntegration {
 
         const ammoOptions = ammoItems.map(a => {
             const dieLabel = AmmoDiceCalculator.usesAmmoDice(a) ? ` (${AmmoDiceCalculator.getDieLabel(a)})` : '';
-            return `<option value="${a.id}" ${a.id === pairedAmmoId ? 'selected' : ''}>${a.name}${dieLabel}</option>`;
+            return `<option value="${a.id}" ${a.id === pairedAmmoId ? 'selected' : ''}>${this._esc(a.name)}${dieLabel}</option>`;
         }).join('');
 
         // Show paired ammo status
@@ -1130,7 +889,7 @@ export class TidyIntegration {
                             <span class="glinv-ammo-die-label">${dieLabel}</span>
                         </div>
                         <span class="glinv-ammo-max">/ d${maxDie}</span>
-                        <span class="glinv-ammo-paired-name">${pairedAmmo.name}</span>
+                        <span class="glinv-ammo-paired-name">${this._esc(pairedAmmo.name)}</span>
                     </div>
                     <div class="glinv-ammo-controls">
                         <button type="button" class="glinv-ammo-roll-paired" ${isEmpty ? 'disabled' : ''}
@@ -1140,7 +899,7 @@ export class TidyIntegration {
                     </div>`;
             } else if (pairedAmmo) {
                 pairedStatusHtml = `<div class="glinv-repair-info">
-                    <small>${pairedAmmo.name} — ${game.i18n.localize('GLINVSLOTS.ammo.trackIndividual')}</small>
+                    <small>${this._esc(pairedAmmo.name)} — ${game.i18n.localize('GLINVSLOTS.ammo.trackIndividual')}</small>
                 </div>`;
             }
         }
