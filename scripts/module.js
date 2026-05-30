@@ -1,4 +1,4 @@
-import { MODULE_ID, FLAG_SCOPE, registerSettings } from './settings.js';
+import { MODULE_ID, FLAG_SCOPE, registerSettings, unwrapElement } from './settings.js';
 import { SlotCalculator } from './SlotCalculator.js';
 import { TidyIntegration } from './TidyIntegration.js';
 import { NotchCalculator } from './NotchCalculator.js';
@@ -373,7 +373,7 @@ function _refreshActorSheet(actor) {
         attempts++;
         const app = actor.sheet;
         if (!app) { clearInterval(actor._glInvInterval); return; }
-        const el = app.element instanceof jQuery ? app.element[0] : app.element;
+        const el = unwrapElement(app.element);
         if (!el) { clearInterval(actor._glInvInterval); return; }
 
         TidyIntegration._processActorSheet(app, el);

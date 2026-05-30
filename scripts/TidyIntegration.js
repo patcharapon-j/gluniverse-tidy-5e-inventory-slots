@@ -1,4 +1,4 @@
-import { MODULE_ID, FLAG_SCOPE, BULK_CATEGORIES, BULK_ORDER, TEMPER_GRADES, FRAGILITY, AMMO_DIE_CHAIN, DICE_POOL_DEFAULTS, DICE_POOL_DIE_TYPES, getSetting } from './settings.js';
+import { MODULE_ID, FLAG_SCOPE, BULK_CATEGORIES, BULK_ORDER, TEMPER_GRADES, FRAGILITY, AMMO_DIE_CHAIN, DICE_POOL_DEFAULTS, DICE_POOL_DIE_TYPES, getSetting, unwrapElement } from './settings.js';
 import { SlotCalculator } from './SlotCalculator.js';
 import { NotchCalculator } from './NotchCalculator.js';
 import { AmmoDiceCalculator } from './AmmoDiceCalculator.js';
@@ -30,39 +30,53 @@ export class TidyIntegration {
     // ─── Sheet Render Hooks ──────────────────────────────────────────
 
     static _hookSheetRender() {
-        // AppV1 Classic hooks
+        // Tidy 5e's own (Classic) render hook — harmless if it never fires.
         Hooks.on('tidy5e-sheet.renderActorSheet', (app, element, data, forced) => {
             this._processActorSheet(app, element);
         });
 
+        // Application V1 render hooks (Foundry v13 and earlier). These are no-ops
+        // on v14, where Application V1 has been removed, but remain for back-compat.
         Hooks.on('renderActorSheet', (app, html, data) => {
             try { if (!this._api?.isTidy5eSheet(app)) return; } catch { return; }
-            const el = html instanceof jQuery ? html[0] : html;
-            this._processActorSheet(app, el);
+            this._processActorSheet(app, unwrapElement(html));
         });
 
-        // AppV2 hooks
-        Hooks.on('renderApplication', (app, options) => {
-            if (!app.constructor?.name?.includes('Tidy5e')) return;
-            this._processActorSheet(app, app.element);
-        });
-
-        // Item sheets (both AppV1 and V2)
         Hooks.on('renderItemSheet', (app, html, data) => {
-            if (!getSetting('enableSlotSystem') && !getSetting('enableWearAndTear') && !getSetting('enableAmmunitionDice') && !getSetting('enableDicePool')) return;
+            if (!this._anyFeatureEnabled()) return;
             const item = app.document || app.item || app.object;
             if (!item) return;
-            const el = html instanceof jQuery ? html[0] : html;
-            this._injectItemTab(el, item);
+            this._injectItemTab(unwrapElement(html), item);
         });
 
-        Hooks.on('renderApplication', (app, options) => {
-            if (!getSetting('enableSlotSystem') && !getSetting('enableWearAndTear') && !getSetting('enableAmmunitionDice') && !getSetting('enableDicePool')) return;
-            const doc = app.document || app.item || app.object;
-            if (!doc || doc.documentName !== 'Item') return;
-            const el = app.element instanceof jQuery ? app.element[0] : app.element;
-            if (el) this._injectItemTab(el, doc);
-        });
+        // Application V2 render handler. On Foundry v14 ApplicationV2 fires the
+        // `renderApplicationV2` hook; on v13 the generic `renderApplication` hook
+        // is also dispatched. We register the same handler on both names so the
+        // module works across versions, and guard against double-processing.
+        const onAppV2Render = (app, _result, _options) => {
+            const el = unwrapElement(app?.element);
+            if (!el) return;
+
+            // Tidy 5e actor sheets (Quadrone / AppV2).
+            if (app.constructor?.name?.includes('Tidy5e')) {
+                this._processActorSheet(app, el);
+            }
+
+            // Any item sheet (Tidy or core) — annotate the slot/notch config panel.
+            if (this._anyFeatureEnabled()) {
+                const doc = app.document || app.item || app.object;
+                if (doc?.documentName === 'Item') this._injectItemTab(el, doc);
+            }
+        };
+
+        Hooks.on('renderApplicationV2', onAppV2Render);
+        Hooks.on('renderApplication', onAppV2Render);
+    }
+
+    /** True when at least one of the module's features is enabled. */
+    static _anyFeatureEnabled() {
+        return getSetting('enableSlotSystem') || getSetting('enableWearAndTear')
+            || getSetting('enableAmmunitionDice') || getSetting('enableDicePool');
     }
 
     /**
@@ -142,7 +156,7 @@ export class TidyIntegration {
             : Object.values(ui.windows || {});
 
         const app = apps.find(a => {
-            const el = a.element instanceof jQuery ? a.element[0] : a.element;
+            const el = unwrapElement(a.element);
             return el === sheetEl;
         });
         if (!app) return;
@@ -172,7 +186,7 @@ export class TidyIntegration {
             if (actor.type === 'npc' && !getSetting('enableForNPCs')) return;
             if (actor.type !== 'character' && actor.type !== 'npc') return;
 
-            const el = element instanceof jQuery ? element[0] : element;
+            const el = unwrapElement(element);
             if (!el) return;
 
             try {
@@ -446,6 +460,9 @@ export class TidyIntegration {
             maxSlotsOverride: root.querySelector('[name="maxSlotsOverride"]')?.value || ''
         });
 
+        // Foundry v14 removes the Application V1 `Dialog` class; DialogV2 is the
+        // only supported path. A rejected promise means the user dismissed the
+        // dialog, so we simply abort without making changes.
         let result;
         try {
             result = await foundry.applications.api.DialogV2.prompt({
@@ -457,11 +474,7 @@ export class TidyIntegration {
                 }
             });
         } catch {
-            result = await Dialog.prompt({
-                title: `${game.i18n.localize('GLINVSLOTS.inventorySlots')} — ${actor.name}`,
-                content,
-                callback: (html) => parseForm(html instanceof jQuery ? html[0] : html)
-            });
+            return;
         }
 
         if (!result) return;
