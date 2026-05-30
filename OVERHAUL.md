@@ -83,7 +83,15 @@ good `#67d39b`, gold quickdraw · springy `cubic-bezier(.34,1.56,.5,1)` motion.
    motion). Item names escaped (`_esc`) — closes the stored-XSS hole.
 4. ✅ All four systems share the redesigned component skin.
 5. ⏳ Calculator memoization (deferred — not required for correctness; calculators verified sound).
-6. ⏳ New features (header readout chip, quickdraw belt, row quick-actions) — next pass.
+6. ✅ New features:
+   - **Header readout chip** — used/max slots badge in the title bar (injected at the
+     documented `NAME_CONTAINER` anchor), state-colored, with `dread` glow when overburdened.
+   - **Native item-row quick-actions** via `api.config.itemSummary.registerCommands`
+     (roll ammo, replenish, roll/refill pool, add notch, repair, toggle quickdraw) —
+     feature-detected; skipped gracefully on older Tidy builds.
+   - **±N float indicator** animating on slot-count change between renders.
+   - **Quickdraw belt** — gold chip tray of quickdraw items in the panel.
+     (Drag-to-reorder still deferred: needs Foundry drag/drop verified in-app.)
 7. ✅ Docs (CLAUDE.md API correction, file tree), `module.json` (styles + fonts + v3.0.0 + Tidy 13 dep).
 
 ## F. In-App Verification Checklist (must run inside FoundryVTT)
@@ -101,3 +109,8 @@ executed inside Foundry from the build environment. Confirm:
 - [ ] Oxanium loads offline (disable network, hard-reload) — text renders in Oxanium.
 - [ ] GM settings dialog (cog button) opens, styled, and saves size/slot overrides.
 - [ ] `prefers-reduced-motion` disables animations.
+- [ ] Header chip shows used/max next to the actor name. If it lands in the wrong spot,
+      `NAME_CONTAINER` resolved unexpectedly — adjust the header `injectParams.selector`.
+- [ ] Expanding an inventory row shows quick-action buttons (roll ammo / pool / notch /
+      repair / quickdraw) only when relevant; clicking them works and updates reactively.
+- [ ] Quickdraw belt lists gold chips for quickdraw items; ±N float animates on slot change.

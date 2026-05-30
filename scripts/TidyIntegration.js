@@ -77,6 +77,168 @@ export class TidyIntegration {
         } catch (err) {
             console.error(`${MODULE_ID} | Failed to register item content:`, err);
         }
+
+        // — Header readout chip: a compact used/max slots badge in the title bar,
+        //   anchored to the (always-present) name container used by Tidy's own
+        //   official example. Mirrors the clocks-and-tracker compact readout.
+        const partName = api.constants?.SHEET_PARTS?.NAME_CONTAINER || 'name-container';
+        const headerChip = () => new HtmlContent({
+            html: () => `<span class="glinv-scope glinv-header-chip-root" data-tidy-render-scheme="handlebars"></span>`,
+            renderScheme: 'handlebars',
+            injectParams: { selector: `[data-tidy-sheet-part="${partName}"]`, position: 'beforebegin' },
+            enabled: () => getSetting('enableSlotSystem'),
+            onRender: (params) => this._onHeaderChipRender(params),
+        });
+        try {
+            api.registerCharacterContent(headerChip(), { layout: 'all' });
+            api.registerNpcContent(headerChip(), { layout: 'all' });
+        } catch (err) {
+            console.error(`${MODULE_ID} | Failed to register header chip:`, err);
+        }
+
+        // — Native quick-action buttons in the inventory item-row summary.
+        this._registerItemSummaryCommands();
+    }
+
+    /** Map<actorId, number> — last seen slotsUsed, for the ±N float animation. */
+    static _slotCache = new Map();
+
+    /**
+     * Register tactile quick-action buttons that Tidy renders inside the item
+     * summary expansion (and info card) on inventory rows. Feature-detected so
+     * older Tidy builds without the itemSummary API simply skip these.
+     */
+    static _registerItemSummaryCommands() {
+        const api = this._api;
+        const register = api?.config?.itemSummary?.registerCommands;
+        if (typeof register !== 'function') {
+            console.log(`${MODULE_ID} | itemSummary.registerCommands unavailable — skipping row quick-actions`);
+            return;
+        }
+
+        const L = (k) => game.i18n.localize(k);
+        const physical = (item) => { try { return SlotCalculator._isPhysicalItem(item); } catch { return false; } };
+
+        const commands = [
+            // Ammunition dice
+            {
+                label: L('GLINVSLOTS.ammo.rollAmmo'),
+                iconClass: 'fas fa-dice',
+                enabled: ({ item }) => getSetting('enableAmmunitionDice')
+                    && AmmoDiceCalculator.usesAmmoDice(item) && !AmmoDiceCalculator.isEmpty(item),
+                execute: async ({ item }) => { await AmmoDiceCalculator.rollAmmoDie(item, true); },
+            },
+            {
+                label: L('GLINVSLOTS.ammo.replenishFull'),
+                iconClass: 'fas fa-arrows-rotate',
+                enabled: ({ item }) => getSetting('enableAmmunitionDice')
+                    && AmmoDiceCalculator.usesAmmoDice(item)
+                    && AmmoDiceCalculator.getCurrentDie(item) < AmmoDiceCalculator.getMaxDie(item),
+                execute: async ({ item }) => {
+                    const r = await AmmoDiceCalculator.fullReplenish(item);
+                    if (!r.alreadyFull) ui.notifications.info(`${item.name}: ${L('GLINVSLOTS.ammo.replenishFull')} (${r.cost} gp)`);
+                },
+            },
+            // Dice pool
+            {
+                label: L('GLINVSLOTS.pool.rollPool'),
+                iconClass: 'fas fa-cubes',
+                enabled: ({ item }) => getSetting('enableDicePool')
+                    && DicePoolCalculator.usesDicePool(item) && !DicePoolCalculator.isDepleted(item),
+                execute: async ({ item }) => {
+                    const r = await DicePoolCalculator.rollPool(item, true);
+                    if (r.depleted) ui.notifications.warn(`${item.name}: ${L('GLINVSLOTS.pool.itemDepleted')}`);
+                },
+            },
+            {
+                label: L('GLINVSLOTS.pool.refill'),
+                iconClass: 'fas fa-arrows-rotate',
+                enabled: ({ item }) => getSetting('enableDicePool')
+                    && DicePoolCalculator.usesDicePool(item)
+                    && DicePoolCalculator.getPoolSize(item) < DicePoolCalculator.getMaxPoolSize(item),
+                execute: async ({ item }) => { await DicePoolCalculator.refillPool(item); },
+            },
+            // Wear & tear
+            {
+                label: L('GLINVSLOTS.notch.addNotch'),
+                iconClass: 'fas fa-hammer',
+                enabled: ({ item }) => getSetting('enableWearAndTear') && physical(item),
+                execute: async ({ item }) => {
+                    const r = await NotchCalculator.addNotch(item);
+                    await NotchCalculator.announceNotch(item, item.parent, L('GLINVSLOTS.notch.addNotch'));
+                    if (r.shattered) ui.notifications.warn(`${item.name} ${L('GLINVSLOTS.notch.shattered')}!`);
+                },
+            },
+            {
+                label: L('GLINVSLOTS.notch.removeNotch'),
+                iconClass: 'fas fa-wrench',
+                enabled: ({ item }) => getSetting('enableWearAndTear')
+                    && NotchCalculator.getEffectiveNotches(item) > 0,
+                execute: async ({ item }) => { await NotchCalculator.removeNotch(item, 1); },
+            },
+            // Quickdraw toggle
+            {
+                label: L('GLINVSLOTS.quickdraw'),
+                iconClass: 'fas fa-bolt',
+                enabled: ({ item }) => getSetting('enableSlotSystem') && getSetting('enableQuickdraw') && physical(item),
+                execute: async ({ item }) => {
+                    const isQd = item.getFlag(FLAG_SCOPE, 'quickdraw') || false;
+                    if (!isQd) {
+                        const count = SlotCalculator.getQuickdrawCount(item.parent);
+                        const max = SlotCalculator.getMaxQuickdrawSlots();
+                        if (count >= max) { ui.notifications.warn(game.i18n.format('GLINVSLOTS.quickdrawFull', { max })); return; }
+                    }
+                    await item.setFlag(FLAG_SCOPE, 'quickdraw', !isQd);
+                },
+            },
+        ];
+
+        try {
+            register.call(api.config.itemSummary, commands);
+        } catch (err) {
+            console.error(`${MODULE_ID} | Failed to register item-summary commands:`, err);
+        }
+    }
+
+    static _onHeaderChipRender(params) {
+        const actor = params.app?.document;
+        const root = params.element?.classList?.contains('glinv-header-chip-root')
+            ? params.element
+            : params.element?.querySelector?.('.glinv-header-chip-root');
+        if (!actor || actor.documentName !== 'Actor' || !root) return;
+        if (actor.type === 'npc' && !getSetting('enableForNPCs')) { root.remove(); return; }
+        if (actor.type !== 'character' && actor.type !== 'npc') { root.remove(); return; }
+
+        try {
+            const inv = SlotCalculator.calculateInventory(actor);
+            const { slotsUsed, maxSlots, encumbranceState } = inv;
+            const stateClass = encumbranceState === 'overburdened' ? 'glinv-overburdened'
+                : encumbranceState === 'encumbered' ? 'glinv-encumbered'
+                : slotsUsed > maxSlots * 0.75 ? 'glinv-heavy' : '';
+            root.innerHTML = `<span class="glinv-header-chip ${stateClass}" title="${this._esc(L_inv(slotsUsed, maxSlots))}">
+                <i class="fas fa-box"></i>
+                <span class="glinv-hc-used">${slotsUsed}</span><span class="glinv-hc-sep">/</span><span class="glinv-hc-max">${maxSlots}</span>
+            </span>`;
+        } catch (err) {
+            console.error(`${MODULE_ID} | Error rendering header chip:`, err);
+        }
+
+        function L_inv(u, m) {
+            return `${game.i18n.localize('GLINVSLOTS.inventorySlots')}: ${u}/${m}`;
+        }
+    }
+
+    /** Append a transient ±N float indicator into a container when slotsUsed changes. */
+    static _emitSlotDelta(container, actorId, slotsUsed) {
+        const prev = this._slotCache.get(actorId);
+        this._slotCache.set(actorId, slotsUsed);
+        if (prev === undefined || prev === slotsUsed || !container) return;
+        const delta = slotsUsed - prev;
+        const el = document.createElement('span');
+        el.className = `glinv-float-delta ${delta > 0 ? 'glinv-delta-up' : 'glinv-delta-down'}`;
+        el.textContent = `${delta > 0 ? '+' : ''}${delta}`;
+        container.appendChild(el);
+        setTimeout(() => el.remove(), 900);
     }
 
     /** Escape a string for safe interpolation into innerHTML. */
@@ -110,6 +272,9 @@ export class TidyIntegration {
                     ev.stopPropagation();
                     this._openSettingsDialog(actor);
                 });
+                // Tactile ±N float when the slot total changes between renders.
+                const slotsUsed = SlotCalculator.calculateInventory(actor).slotsUsed;
+                this._emitSlotDelta(root.querySelector('.glinv-slot-count'), actor.id, slotsUsed);
             } else {
                 root.innerHTML = '';
             }
@@ -255,6 +420,37 @@ export class TidyIntegration {
         return `
             <div class="glinv-slot-panel glinv-glass ${stateClass}" title="${this._esc(tooltip)}">
                 ${innerHtml}
+                ${this._buildQuickdrawBeltHtml(actor)}
+            </div>`;
+    }
+
+    /**
+     * Build the quickdraw "belt" — a tray of gold chips for the actor's
+     * quickdraw-flagged items. Read-only display (drag-to-reorder is deferred,
+     * as it needs Foundry's drag/drop APIs verified in-app).
+     */
+    static _buildQuickdrawBeltHtml(actor) {
+        if (!getSetting('enableQuickdraw')) return '';
+        const items = (actor.items?.contents ?? []).filter((i) => {
+            try { return SlotCalculator._isPhysicalItem(i) && SlotCalculator.isQuickdraw(i); }
+            catch { return false; }
+        });
+        if (items.length === 0) return '';
+
+        const max = SlotCalculator.getMaxQuickdrawSlots();
+        const chips = items.map((i) => `
+            <span class="glinv-qd-chip" data-item-id="${this._esc(i.id)}" title="${this._esc(i.name)}">
+                ${i.img ? `<img src="${this._esc(i.img)}" alt="">` : '<i class="fas fa-bolt"></i>'}
+                <span class="glinv-qd-chip-name">${this._esc(i.name)}</span>
+            </span>`).join('');
+
+        return `
+            <div class="glinv-quickdraw-belt">
+                <span class="glinv-qd-belt-label">
+                    <i class="fas fa-bolt"></i> ${game.i18n.localize('GLINVSLOTS.quickdraw')}
+                    <span class="glinv-qd-belt-count">${items.length}/${max}</span>
+                </span>
+                <div class="glinv-qd-chips">${chips}</div>
             </div>`;
     }
 

@@ -422,5 +422,109 @@
 }
 .glinv-scope .glinv-degraded { color: var(--glinv-danger); }
 
+/* ─── Header Readout Chip ───────────────────────────────────────────── */
+.glinv-scope.glinv-header-chip-root { display: inline-flex; vertical-align: middle; margin-right: 0.4rem; }
+.glinv-scope .glinv-header-chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.18rem;
+    padding: 0.12rem 0.5rem;
+    border-radius: var(--glinv-radius-pill);
+    background: var(--glinv-surface-2);
+    border: 1px solid var(--glinv-edge);
+    box-shadow: var(--glinv-shadow-chip);
+    font-family: var(--glinv-font);
+    font-size: 0.78rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--glinv-ink);
+    line-height: 1.2;
+}
+.glinv-scope .glinv-header-chip i { color: var(--glinv-tint); font-size: 0.72rem; align-self: center; }
+.glinv-scope .glinv-header-chip .glinv-hc-sep,
+.glinv-scope .glinv-header-chip .glinv-hc-max { color: var(--glinv-muted); font-weight: 600; }
+.glinv-scope .glinv-header-chip.glinv-heavy { box-shadow: var(--glinv-shadow-chip), 0 0 10px var(--glinv-warn-glow); }
+.glinv-scope .glinv-header-chip.glinv-encumbered { border-color: var(--glinv-warn); }
+.glinv-scope .glinv-header-chip.glinv-encumbered .glinv-hc-used { color: var(--glinv-warn); }
+.glinv-scope .glinv-header-chip.glinv-overburdened { border-color: var(--glinv-danger); animation: glinv-dread 3.2s var(--glinv-ease) infinite; }
+.glinv-scope .glinv-header-chip.glinv-overburdened .glinv-hc-used { color: var(--glinv-danger); }
+
+/* ─── ±N Float Delta ────────────────────────────────────────────────── */
+.glinv-scope .glinv-slot-count { position: relative; }
+.glinv-scope .glinv-float-delta {
+    position: absolute;
+    right: -0.2rem;
+    top: -0.3rem;
+    font-size: 0.78rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    pointer-events: none;
+    text-shadow: 0 0 8px currentColor;
+}
+.glinv-scope .glinv-delta-up { color: var(--glinv-danger); animation: glinv-float-up 0.9s var(--glinv-ease-soft) both; }
+.glinv-scope .glinv-delta-down { color: var(--glinv-good); animation: glinv-float-down 0.9s var(--glinv-ease-soft) both; }
+
+/* ─── Quickdraw Belt ────────────────────────────────────────────────── */
+.glinv-scope .glinv-quickdraw-belt {
+    margin-top: 0.6rem;
+    padding-top: 0.55rem;
+    border-top: 1px dashed color-mix(in srgb, var(--glinv-gold) 40%, transparent);
+}
+.glinv-scope .glinv-qd-belt-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--glinv-gold);
+    margin-bottom: 0.4rem;
+}
+.glinv-scope .glinv-qd-belt-count {
+    color: var(--glinv-muted);
+    font-variant-numeric: tabular-nums;
+}
+.glinv-scope .glinv-qd-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+.glinv-scope .glinv-qd-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    max-width: 11rem;
+    padding: 0.22rem 0.5rem 0.22rem 0.28rem;
+    border-radius: var(--glinv-radius-pill);
+    background: linear-gradient(180deg, rgba(240, 199, 94, 0.12), rgba(240, 199, 94, 0.04));
+    border: 1px solid color-mix(in srgb, var(--glinv-gold) 55%, var(--glinv-edge));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 0 10px var(--glinv-gold-glow);
+    overflow: hidden;
+    transition: transform 0.16s var(--glinv-ease-spring), box-shadow var(--glinv-dur) var(--glinv-ease);
+    animation: glinv-slot-pop 0.4s var(--glinv-ease-spring) both;
+}
+.glinv-scope .glinv-qd-chip:hover {
+    transform: translateY(-1px) scale(1.03);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 0 16px var(--glinv-gold-glow);
+}
+.glinv-scope .glinv-qd-chip img {
+    width: 1.2rem;
+    height: 1.2rem;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid color-mix(in srgb, var(--glinv-gold) 60%, transparent);
+    flex: none;
+}
+.glinv-scope .glinv-qd-chip i { color: var(--glinv-gold); font-size: 0.7rem; }
+.glinv-scope .glinv-qd-chip-name {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--glinv-ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
 /* ─── Settings Dialog (DialogV2) skin ───────────────────────────────── */
 .glinv-scope .glinv-override-form .form-group { margin-bottom: 0.6rem; }
