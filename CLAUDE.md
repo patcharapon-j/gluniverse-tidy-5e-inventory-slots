@@ -2,7 +2,16 @@
 
 ## Overview
 
-This module integrates Giffyglyph's Darker Dungeons Active Inventory system into the Tidy 5e Sheet for FoundryVTT v13. It replaces weight-based encumbrance with a slot/bulk system.
+This module integrates Giffyglyph's Darker Dungeons Active Inventory system into the Tidy 5e Sheet for FoundryVTT v13–v14. It replaces weight-based encumbrance with a slot/bulk system.
+
+### FoundryVTT v14 Migration Notes
+
+Foundry v14 removes Application V1 entirely, which has direct consequences for this module:
+
+- **The global `jQuery` is gone.** The legacy `x instanceof jQuery` pattern throws a `ReferenceError`. Use the `unwrapElement()` helper in `settings.js`, which duck-types a jQuery-wrapped collection (`.length` + indexable) and returns a raw `HTMLElement` without ever referencing the `jQuery` global.
+- **The AppV1 `Dialog` class is gone.** Use `foundry.applications.api.DialogV2` only. A rejected `DialogV2.prompt` promise means the user dismissed the dialog — abort rather than falling back to a legacy dialog.
+- **Render hooks:** ApplicationV2 dispatches `renderApplicationV2` (not the AppV1 `renderApplication`). The module registers the same handler on both hook names for v13/v14 compatibility. The `renderActorSheet` / `renderItemSheet` AppV1 hooks never fire on v14 but are kept as harmless no-ops.
+- ActiveEffect changes in v14 (`ActiveEffect#changes` → `ActiveEffect#system#changes`, `mode` → `type`, AEs as primary documents) do not affect this module — it applies its mechanical effects by wrapping `prepareDerivedData` and via dnd5e roll hooks, not via ActiveEffects.
 
 Source rules: https://www.giffyglyph.com/darkerdungeons/grimoire/4.0.0/en/active_inventory.html
 

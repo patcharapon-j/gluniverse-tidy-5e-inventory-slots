@@ -311,6 +311,31 @@ export function getSetting(key) {
     return game.settings.get(MODULE_ID, key);
 }
 
+/**
+ * Normalize a render-hook element to a raw DOM node.
+ *
+ * Foundry v14 removes Application V1 and the global `jQuery`, so the legacy
+ * `x instanceof jQuery` pattern throws a ReferenceError. ApplicationV2 (and the
+ * Quadrone Tidy 5e sheet) already hand us a raw DOM element. This helper accepts
+ * a raw element, a jQuery-wrapped element (v13 and earlier), or null, and always
+ * returns a plain HTMLElement (or null) without touching the `jQuery` global.
+ *
+ * @param {HTMLElement|object|null} el
+ * @returns {HTMLElement|null}
+ */
+export function unwrapElement(el) {
+    if (!el) return null;
+    // Raw DOM element (ApplicationV2 / v14)
+    if (el instanceof HTMLElement) return el;
+    // jQuery-wrapped collection (AppV1, v13 and earlier) — duck-typed so we
+    // never reference the (possibly removed) global `jQuery` constructor.
+    if (typeof el === 'object' && typeof el.length === 'number') {
+        const first = el[0];
+        return first instanceof HTMLElement ? first : null;
+    }
+    return null;
+}
+
 export function setSetting(key, value) {
     return game.settings.set(MODULE_ID, key, value);
 }

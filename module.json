@@ -2,7 +2,7 @@
     "id": "gluniverse-tidy-5e-inventory-slots",
     "title": "GLUniverse - Tidy 5e Inventory Slots",
     "description": "Integrates Giffyglyph's Darker Dungeons Active Inventory system into Tidy 5e sheets. Replaces weight-based encumbrance with a slot/bulk system featuring quickdraw items, pack endurance, object scaling, containers, and configurable encumbrance thresholds.",
-    "version": "1.2.0",
+    "version": "1.3.0",
     "authors": [
         {
             "name": "GLUniverse"
@@ -10,7 +10,8 @@
     ],
     "compatibility": {
         "minimum": "13",
-        "verified": "13"
+        "verified": "14",
+        "maximum": "14"
     },
     "relationships": {
         "systems": [

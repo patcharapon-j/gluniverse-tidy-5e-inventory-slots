@@ -1,0 +1,95 @@
+name: Release Module
+
+# Manually-triggered release.
+# Pick the semver bump (patch/minor/major); the workflow updates module.json,
+# builds module.zip, commits the bump, tags it, and publishes a GitHub Release.
+# Foundry users install/update via the stable manifest link:
+#   https://github.com/<owner>/<repo>/releases/latest/download/module.json
+on:
+  workflow_dispatch:
+    inputs:
+      release_type:
+        description: "Semver bump"
+        required: true
+        default: patch
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Compute next version
+        id: version
+        run: |
+          current="$(jq -r '.version' module.json)"
+          IFS='.' read -r major minor patch <<< "$current"
+          case "${{ inputs.release_type }}" in
+            major) major=$((major + 1)); minor=0; patch=0 ;;
+            minor) minor=$((minor + 1)); patch=0 ;;
+            patch) patch=$((patch + 1)) ;;
+          esac
+          new="${major}.${minor}.${patch}"
+          echo "current=$current" >> "$GITHUB_OUTPUT"
+          echo "version=$new" >> "$GITHUB_OUTPUT"
+          echo "tag=v$new" >> "$GITHUB_OUTPUT"
+          echo "Bumping ${current} -> ${new} (${{ inputs.release_type }})"
+
+      - name: Update module.json (version + asset URLs)
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+          REPO: ${{ github.repository }}
+        run: |
+          manifest="https://github.com/${REPO}/releases/latest/download/module.json"
+          download="https://github.com/${REPO}/releases/download/${TAG}/module.zip"
+          tmp="$(mktemp)"
+          jq --arg v "$VERSION" --arg m "$manifest" --arg d "$download" \
+            '.version = $v | .manifest = $m | .download = $d' module.json > "$tmp"
+          mv "$tmp" module.json
+          echo "::group::module.json"
+          cat module.json
+          echo "::endgroup::"
+
+      - name: Build module.zip
+        run: |
+          zip -r module.zip \
+            module.json \
+            scripts \
+            styles \
+            languages \
+            README.md
+
+      - name: Commit version bump and tag
+        env:
+          TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add module.json
+          git commit -m "Release ${TAG}"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          git tag "${TAG}"
+          git push origin "${TAG}"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.version.outputs.tag }}
+          VERSION: ${{ steps.version.outputs.version }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh release create "${TAG}" \
+            module.json module.zip \
+            --title "${TAG}" \
+            --target "${GITHUB_SHA}" \
+            --notes "$(printf 'Release %s\n\n**Install / update in Foundry VTT** via this manifest URL:\n```\nhttps://github.com/%s/releases/latest/download/module.json\n```' "${VERSION}" "${REPO}")"
