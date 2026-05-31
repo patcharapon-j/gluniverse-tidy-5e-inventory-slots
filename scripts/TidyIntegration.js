@@ -65,17 +65,40 @@ export class TidyIntegration {
             console.error(`${MODULE_ID} | Failed to register actor content:`, err);
         }
 
-        // — Item: configuration panel, injected into the item sheet body.
-        const itemContent = () => new HtmlContent({
-            html: () => `<div class="glinv-scope glinv-item-root" data-tidy-render-scheme="handlebars"></div>`,
-            renderScheme: 'handlebars',
-            enabled: () => this._anyFeatureEnabled(),
-            onRender: (params) => this._onItemRender(params),
-        });
-        try {
-            api.registerItemContent(itemContent(), { layout: 'all' });
-        } catch (err) {
-            console.error(`${MODULE_ID} | Failed to register item content:`, err);
+        // — Item: configuration as a dedicated sheet tab. A registered tab is the
+        //   reliable Quadrone injection point (a content block with no anchor has
+        //   nowhere to render), and gives users a discoverable "Active Inventory"
+        //   tab on physical item sheets.
+        const PHYSICAL_ITEM_TYPES = ['weapon', 'equipment', 'consumable', 'tool', 'loot', 'container', 'backpack'];
+        const HtmlTab = api.models.HtmlTab;
+        if (HtmlTab && typeof api.registerItemTab === 'function') {
+            const itemTab = new HtmlTab({
+                title: () => game.i18n.localize('GLINVSLOTS.itemConfig'),
+                tabId: 'gluniverse-active-inventory',
+                iconClass: 'fas fa-box-open',
+                html: () => `<div class="glinv-scope glinv-item-root" data-tidy-render-scheme="handlebars"></div>`,
+                renderScheme: 'handlebars',
+                enabled: () => this._anyFeatureEnabled(),
+                onRender: (params) => this._onItemRender(params),
+            });
+            try {
+                api.registerItemTab(itemTab, { layout: 'all', autoHeight: true, types: PHYSICAL_ITEM_TYPES });
+            } catch (err) {
+                console.error(`${MODULE_ID} | Failed to register item tab:`, err);
+            }
+        } else {
+            // Fallback for older Tidy: inject into the item sheet body.
+            const itemContent = () => new HtmlContent({
+                html: () => `<div class="glinv-scope glinv-item-root" data-tidy-render-scheme="handlebars"></div>`,
+                renderScheme: 'handlebars',
+                enabled: () => this._anyFeatureEnabled(),
+                onRender: (params) => this._onItemRender(params),
+            });
+            try {
+                api.registerItemContent(itemContent(), { layout: 'all' });
+            } catch (err) {
+                console.error(`${MODULE_ID} | Failed to register item content:`, err);
+            }
         }
 
         // — Header readout chip: a compact used/max slots badge in the title bar,
@@ -228,19 +251,6 @@ export class TidyIntegration {
         }
     }
 
-    /** Append a transient ±N float indicator into a container when slotsUsed changes. */
-    static _emitSlotDelta(container, actorId, slotsUsed) {
-        const prev = this._slotCache.get(actorId);
-        this._slotCache.set(actorId, slotsUsed);
-        if (prev === undefined || prev === slotsUsed || !container) return;
-        const delta = slotsUsed - prev;
-        const el = document.createElement('span');
-        el.className = `glinv-float-delta ${delta > 0 ? 'glinv-delta-up' : 'glinv-delta-down'}`;
-        el.textContent = `${delta > 0 ? '+' : ''}${delta}`;
-        container.appendChild(el);
-        setTimeout(() => el.remove(), 900);
-    }
-
     /** Escape a string for safe interpolation into innerHTML. */
     static _esc(str) {
         return String(str ?? '').replace(/[&<>"']/g, (c) => (
@@ -265,16 +275,31 @@ export class TidyIntegration {
             root.classList.toggle('glinv-host-dark', sheetEl.classList.contains('theme-dark'));
 
             if (getSetting('enableSlotSystem')) {
-                root.innerHTML = this._buildSlotPanelHtml(actor);
-                const btn = root.querySelector('[data-glinv-settings]');
-                if (btn) btn.addEventListener('click', (ev) => {
-                    ev.preventDefault();
-                    ev.stopPropagation();
-                    this._openSettingsDialog(actor);
-                });
-                // Tactile ±N float when the slot total changes between renders.
-                const slotsUsed = SlotCalculator.calculateInventory(actor).slotsUsed;
-                this._emitSlotDelta(root.querySelector('.glinv-slot-count'), actor.id, slotsUsed);
+                const inv = SlotCalculator.calculateInventory(actor);
+                const sig = this._slotSignature(actor, inv);
+                const unchanged = this._actorSig.get(actor.id) === sig && root.querySelector('.glinv-slot-panel');
+
+                // Re-render only when the slot state actually changed (or the node
+                // was re-created empty) — not on every Svelte change cycle.
+                if (!unchanged) {
+                    const prevUsed = this._slotCache.get(actor.id);
+                    root.innerHTML = this._buildSlotPanelHtml(actor, inv);
+
+                    const btn = root.querySelector('[data-glinv-settings]');
+                    if (btn) btn.addEventListener('click', (ev) => {
+                        ev.preventDefault();
+                        ev.stopPropagation();
+                        this._openSettingsDialog(actor);
+                    });
+
+                    // Slot-machine reel + trend triangle, only on a real change.
+                    if (prevUsed !== undefined && prevUsed !== inv.slotsUsed) {
+                        this._animateReel(root.querySelector('.glinv-count-used'), prevUsed, inv.slotsUsed);
+                        this._emitTrend(root.querySelector('.glinv-slot-count'), inv.slotsUsed - prevUsed);
+                    }
+                    this._slotCache.set(actor.id, inv.slotsUsed);
+                    this._actorSig.set(actor.id, sig);
+                }
             } else {
                 root.innerHTML = '';
             }
@@ -286,16 +311,76 @@ export class TidyIntegration {
         }
     }
 
+    /** Stable signature of the slot state — used to skip redundant re-renders. */
+    static _slotSignature(actor, inv) {
+        let qd = '';
+        if (getSetting('enableQuickdraw')) {
+            qd = (actor.items?.contents ?? [])
+                .filter((i) => { try { return SlotCalculator._isPhysicalItem(i) && SlotCalculator.isQuickdraw(i); } catch { return false; } })
+                .map((i) => i.id).join(',');
+        }
+        return [inv.slotsUsed, inv.maxSlots, inv.overburdenedMax, inv.encumbranceState,
+            inv.quickdrawCount, inv.maxQuickdraw, qd].join('|');
+    }
+
+    /** Map<actorId, string> — last rendered slot signature. */
+    static _actorSig = new Map();
+
+    /**
+     * Slot-machine digit reel: roll each digit from its old value to the new one.
+     * Element is rebuilt fresh each render, so we seed at the old digit then
+     * transition to the new digit on the next frame (CSS handles the roll).
+     */
+    static _animateReel(el, oldVal, newVal) {
+        if (!el) return;
+        const newStr = String(newVal);
+        const oldStr = String(oldVal).padStart(newStr.length, '0');
+        el.textContent = '';
+        el.classList.add('glinv-reel-num');
+        for (let i = 0; i < newStr.length; i++) {
+            const oldD = parseInt(oldStr[i] ?? '0', 10) || 0;
+            const newD = parseInt(newStr[i], 10) || 0;
+            const reel = document.createElement('span');
+            reel.className = 'glinv-reel';
+            const strip = document.createElement('span');
+            strip.className = 'glinv-reel-strip';
+            for (let d = 0; d <= 9; d++) {
+                const digit = document.createElement('span');
+                digit.className = 'glinv-reel-digit';
+                digit.textContent = String(d);
+                strip.appendChild(digit);
+            }
+            strip.style.transform = `translateY(-${oldD}em)`;
+            reel.appendChild(strip);
+            el.appendChild(reel);
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                strip.style.transform = `translateY(-${newD}em)`;
+            }));
+        }
+    }
+
+    /** Green ▼ (lighter) / red ▲ (heavier) trend triangle, à la clocks-and-tracker. */
+    static _emitTrend(container, delta) {
+        if (!container || !delta) return;
+        const t = document.createElement('span');
+        t.className = `glinv-trend ${delta > 0 ? 'glinv-trend-up' : 'glinv-trend-down'}`;
+        t.textContent = delta > 0 ? '▲' : '▼';
+        container.appendChild(t);
+        setTimeout(() => t.remove(), 1400);
+    }
+
     static _onItemRender(params) {
         const item = params.app?.document;
-        const root = params.element?.classList?.contains('glinv-item-root')
-            ? params.element
-            : params.element?.querySelector?.('.glinv-item-root');
+        // Tabs hand us `tabContentsElement`; content blocks hand us `element`.
+        const host = params.tabContentsElement || params.element;
+        const root = host?.classList?.contains('glinv-item-root')
+            ? host
+            : host?.querySelector?.('.glinv-item-root') || host;
         const sheetEl = unwrapElement(params.app?.element);
         if (!item || item.documentName !== 'Item' || !root) return;
 
         const nonPhysical = ['spell', 'feat', 'class', 'subclass', 'background', 'race', 'facility'];
-        if (nonPhysical.includes(item.type)) { root.remove(); return; }
+        if (nonPhysical.includes(item.type)) { root.innerHTML = ''; return; }
 
         try {
             let html = '';
@@ -323,8 +408,7 @@ export class TidyIntegration {
      * Build the inline slot panel markup for an actor. Pure string builder —
      * the caller injects it into the registered actor content root.
      */
-    static _buildSlotPanelHtml(actor) {
-        const inventory = SlotCalculator.calculateInventory(actor);
+    static _buildSlotPanelHtml(actor, inventory = SlotCalculator.calculateInventory(actor)) {
         const breakdown = SlotCalculator.getSlotBreakdown(actor);
         const { maxSlots, slotsUsed, overburdenedMax, encumbranceState, quickdrawCount, maxQuickdraw } = inventory;
 

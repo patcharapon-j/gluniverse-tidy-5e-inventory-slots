@@ -104,8 +104,10 @@ executed inside Foundry from the build environment. Confirm:
       exists on the open inventory tab.
 - [ ] Panel + row badges survive sheet re-renders, tab switches, and item add/remove
       (no duplicates, no disappearance).
-- [ ] Item config panel renders on the Tidy item sheet; +/− notch, ammo roll/replenish,
-      pool roll/refill update reactively without stacking (click a button repeatedly).
+- [ ] Item config is a dedicated **"Active Inventory" tab** on physical item sheets;
+      +/− notch, ammo roll/replenish, pool roll/refill update reactively without stacking.
+- [ ] Slot count rolls slot-machine style with a green ▼ / red ▲ trend on change; the
+      panel does NOT visibly re-render when nothing changed.
 - [ ] Oxanium loads offline (disable network, hard-reload) — text renders in Oxanium.
 - [ ] GM settings dialog (cog button) opens, styled, and saves size/slot overrides.
 - [ ] `prefers-reduced-motion` disables animations.

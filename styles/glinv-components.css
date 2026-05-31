@@ -20,15 +20,15 @@
 
 /* ─── Slot Panel ────────────────────────────────────────────────────── */
 .glinv-scope .glinv-slot-panel {
-    padding: 0.7rem 0.85rem 0.8rem;
+    padding: 0.4rem 0.5rem;
     overflow: hidden;
 }
 
 .glinv-scope .glinv-grid-header {
     display: flex;
     align-items: center;
-    gap: 0.6rem;
-    margin-bottom: 0.6rem;
+    gap: 0.4rem;
+    margin-bottom: 0.4rem;
 }
 
 .glinv-scope .glinv-slot-label {
@@ -100,40 +100,50 @@
     box-shadow: 0 0 12px var(--glinv-glow-soft);
 }
 
-/* ─── Slot Boxes ────────────────────────────────────────────────────── */
+/* ─── Slot Boxes (shaded, à la clocks-and-tracker) ──────────────────── */
 .glinv-scope .glinv-slot-boxes {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.45rem;
+    gap: 0.28rem;            /* tighter distance between blocks of 5 */
 }
 .glinv-scope .glinv-slot-group {
     display: flex;
-    gap: 0.2rem;
+    gap: 0.22rem;
     padding: 0.2rem;
     border-radius: var(--glinv-radius-sm);
-    background: var(--glinv-well);
-    box-shadow: var(--glinv-shadow-inset);
+    /* recessed well the boxes sit inside */
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0.16));
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6), inset 0 -1px 0 rgba(255, 255, 255, 0.04);
 }
 .glinv-scope .glinv-slot-box {
     width: 0.85rem;
     height: 0.85rem;
     border-radius: 3px;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid var(--glinv-hair);
-    transition: background var(--glinv-dur) var(--glinv-ease),
-                box-shadow var(--glinv-dur) var(--glinv-ease);
+    /* empty = carved-in recess */
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.34), rgba(255, 255, 255, 0.03));
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.65), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+    transition: background 0.16s var(--glinv-ease), box-shadow 0.16s var(--glinv-ease);
 }
 .glinv-scope .glinv-slot-box.glinv-filled {
-    background: linear-gradient(180deg, color-mix(in srgb, var(--glinv-tint) 70%, white 30%), var(--glinv-tint));
-    border-color: color-mix(in srgb, var(--glinv-tint) 60%, white);
-    box-shadow: 0 0 7px var(--glinv-glow-soft), inset 0 1px 0 rgba(255, 255, 255, 0.4);
-    animation: glinv-slot-pop 0.4s var(--glinv-ease-spring) both;
+    /* filled = raised shaded tile with a top sheen */
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0) 45%),
+        linear-gradient(180deg, color-mix(in srgb, var(--glinv-tint) 78%, white), var(--glinv-tint) 60%, color-mix(in srgb, var(--glinv-tint) 70%, black));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        inset 0 -2px 3px rgba(0, 0, 0, 0.35),
+        0 1px 2px rgba(0, 0, 0, 0.45),
+        0 0 6px var(--glinv-glow-soft);
 }
 .glinv-scope .glinv-slot-box.glinv-over {
-    background: linear-gradient(180deg, color-mix(in srgb, var(--glinv-danger) 70%, white 30%), var(--glinv-danger));
-    border-color: var(--glinv-danger);
-    box-shadow: 0 0 8px var(--glinv-danger-glow);
-    animation: glinv-slot-pop 0.4s var(--glinv-ease-spring) both;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 45%),
+        linear-gradient(180deg, color-mix(in srgb, var(--glinv-danger) 80%, white), var(--glinv-danger) 60%, color-mix(in srgb, var(--glinv-danger) 70%, black));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.5),
+        inset 0 -2px 3px rgba(0, 0, 0, 0.4),
+        0 1px 2px rgba(0, 0, 0, 0.5),
+        0 0 8px var(--glinv-danger-glow);
 }
 
 /* Stateful panel glows */
@@ -171,6 +181,7 @@
 .tidy5e-sheet .glinv-icon-basic { color: #8aa1c2; font-size: 0.75rem; }
 .tidy5e-sheet .glinv-slot-compact-times,
 .tidy5e-sheet .glinv-slot-compact-num {
+    font-family: 'Oxanium', 'Segoe UI', system-ui, sans-serif;
     font-size: 0.7rem;
     font-weight: 700;
     color: var(--glinv-muted, #98a2b6);
@@ -183,32 +194,83 @@
     box-shadow: inset 2px 0 0 var(--glinv-gold, #f0c75e);
 }
 
-/* Notch / ammo / pool inline indicators */
-.tidy5e-sheet .glinv-notch-indicator,
+/* ── Ammo / pool inline indicators: tactile die-chips (Oxanium) ──────── */
 .tidy5e-sheet .glinv-ammo-indicator,
 .tidy5e-sheet .glinv-pool-indicator {
     display: inline-flex;
     align-items: center;
-    gap: 0.15rem;
-    margin-left: 0.35rem;
-    font-size: 0.68rem;
+    gap: 0.22rem;
+    margin-left: 0.4rem;
+    padding: 0.02rem 0.42rem 0.02rem 0.34rem;
+    border-radius: 5px;
     vertical-align: middle;
+    font-family: 'Oxanium', 'Segoe UI', system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 0.68rem;
+    letter-spacing: 0.01em;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.2));
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.tidy5e-sheet .glinv-ammo-indicator i,
+.tidy5e-sheet .glinv-pool-indicator i { font-size: 0.62rem; }
+.tidy5e-sheet .glinv-ammo-ind-label,
+.tidy5e-sheet .glinv-pool-ind-label { font-variant-numeric: tabular-nums; }
+
+.tidy5e-sheet .glinv-ammo-indicator { color: #cfe0ff; }
+.tidy5e-sheet .glinv-ammo-indicator i { color: var(--glinv-tint, #6b86d6); }
+.tidy5e-sheet .glinv-ammo-ind-low { color: #ffe6ad; border-color: rgba(231, 185, 85, 0.5); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 0 8px rgba(231, 185, 85, 0.35); }
+.tidy5e-sheet .glinv-ammo-ind-low i { color: var(--glinv-warn, #e7b955); }
+.tidy5e-sheet .glinv-ammo-ind-last { color: #ffc9c4; border-color: rgba(224, 88, 79, 0.6); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 0 9px rgba(224, 88, 79, 0.5); }
+.tidy5e-sheet .glinv-ammo-ind-last i { color: var(--glinv-danger, #e0584f); }
+.tidy5e-sheet .glinv-ammo-ind-empty { color: #9aa3b5; opacity: 0.65; }
+
+.tidy5e-sheet .glinv-pool-indicator { color: #d0f3e0; }
+.tidy5e-sheet .glinv-pool-indicator i { color: var(--glinv-good, #67d39b); }
+.tidy5e-sheet .glinv-pool-ind-low { color: #ffe6ad; border-color: rgba(231, 185, 85, 0.5); }
+.tidy5e-sheet .glinv-pool-ind-low i { color: var(--glinv-warn, #e7b955); }
+.tidy5e-sheet .glinv-pool-ind-critical { color: #ffc9c4; border-color: rgba(224, 88, 79, 0.55); }
+.tidy5e-sheet .glinv-pool-ind-critical i { color: var(--glinv-danger, #e0584f); }
+.tidy5e-sheet .glinv-pool-ind-depleted { color: #9aa3b5; opacity: 0.65; }
+
+/* ── Notch indicator: carved gouge marks + temper gem ───────────────── */
+.tidy5e-sheet .glinv-notch-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.1rem;
+    margin-left: 0.4rem;
+    vertical-align: middle;
+    font-family: 'Oxanium', 'Segoe UI', system-ui, sans-serif;
 }
 .tidy5e-sheet .glinv-notch-pip {
-    width: 2px;
-    height: 0.7rem;
-    background: var(--glinv-warn, #e7b955);
-    transform: skewX(-18deg);
+    width: 3px;
+    height: 0.8rem;
+    transform: skewX(-20deg);
     border-radius: 1px;
+    background: linear-gradient(180deg, rgba(231, 185, 85, 0.95), rgba(150, 110, 30, 0.8));
+    box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.55), 0 0 4px rgba(231, 185, 85, 0.4);
 }
-.tidy5e-sheet .glinv-notch-critical .glinv-notch-pip { background: var(--glinv-danger, #e0584f); }
+.tidy5e-sheet .glinv-notch-warning .glinv-notch-pip { background: linear-gradient(180deg, rgba(231, 185, 85, 1), rgba(170, 120, 30, 0.85)); }
+.tidy5e-sheet .glinv-notch-critical .glinv-notch-pip {
+    background: linear-gradient(180deg, rgba(224, 88, 79, 0.95), rgba(120, 30, 25, 0.85));
+    box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.55), 0 0 5px rgba(224, 88, 79, 0.5);
+}
+.tidy5e-sheet .glinv-notch-count {
+    font-size: 0.66rem;
+    font-weight: 700;
+    color: var(--glinv-warn, #e7b955);
+    font-variant-numeric: tabular-nums;
+}
 .tidy5e-sheet .glinv-shattered { color: var(--glinv-danger, #e0584f); animation: glinv-shatter 0.5s var(--glinv-ease) 1; }
-.tidy5e-sheet .glinv-ammo-ind-low { color: var(--glinv-warn, #e7b955); }
-.tidy5e-sheet .glinv-ammo-ind-last { color: var(--glinv-danger, #e0584f); font-weight: 700; }
-.tidy5e-sheet .glinv-ammo-ind-empty { color: var(--glinv-muted, #98a2b6); opacity: 0.6; }
-.tidy5e-sheet .glinv-pool-ind-low { color: var(--glinv-warn, #e7b955); }
-.tidy5e-sheet .glinv-pool-ind-critical { color: var(--glinv-danger, #e0584f); }
-.tidy5e-sheet .glinv-pool-ind-depleted { color: var(--glinv-muted, #98a2b6); opacity: 0.6; }
+
+/* Temper gem badge — faceted ◆ with grade-tinted halo */
+.tidy5e-sheet .glinv-temper-badge {
+    font-size: 0.66rem;
+    filter: drop-shadow(0 0 4px currentColor);
+}
+.tidy5e-sheet .glinv-temper-pure { color: #9fd0ff; }
+.tidy5e-sheet .glinv-temper-royal { color: #c79bff; }
+.tidy5e-sheet .glinv-temper-astral { color: #ffd27a; }
 
 /* ─── Item Config Sections ──────────────────────────────────────────── */
 .glinv-scope .glinv-item-config {
@@ -340,42 +402,60 @@
     background: var(--glinv-well);
     box-shadow: var(--glinv-shadow-inset);
 }
+/* Notch bar: carved gouges into a recessed strip */
 .glinv-scope .glinv-notch-bar-pip {
-    width: 0.4rem;
-    height: 0.8rem;
+    width: 0.45rem;
+    height: 0.85rem;
     border-radius: 2px;
-    background: rgba(255, 255, 255, 0.06);
-    transform: skewX(-12deg);
+    transform: skewX(-14deg);
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.4), rgba(255, 255, 255, 0.03));
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 .glinv-scope .glinv-notch-bar-filled {
-    background: var(--glinv-warn);
-    box-shadow: 0 0 5px var(--glinv-warn-glow);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--glinv-warn) 85%, white), var(--glinv-warn), color-mix(in srgb, var(--glinv-warn) 70%, black));
+    box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 0 5px var(--glinv-warn-glow);
 }
-.glinv-scope .glinv-pool-pip {
-    width: 0.7rem;
-    height: 0.7rem;
-    border-radius: 3px;
-    background: rgba(255, 255, 255, 0.06);
-}
-.glinv-scope .glinv-pool-pip-filled { background: var(--glinv-good); box-shadow: 0 0 5px var(--glinv-good-glow); }
-.glinv-scope .glinv-pool-pip-filled.glinv-pool-low { background: var(--glinv-warn); }
-.glinv-scope .glinv-pool-pip-filled.glinv-pool-critical,
-.glinv-scope .glinv-pool-pip-filled.glinv-pool-empty { background: var(--glinv-danger); }
 
-/* Ammo die display */
+/* Dice-pool pips: beveled dice cubes */
+.glinv-scope .glinv-pool-pip {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 3px;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.34), rgba(255, 255, 255, 0.03));
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.glinv-scope .glinv-pool-pip-filled {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 45%),
+        linear-gradient(180deg, color-mix(in srgb, var(--glinv-good) 80%, white), var(--glinv-good) 60%, color-mix(in srgb, var(--glinv-good) 70%, black));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -2px 3px rgba(0, 0, 0, 0.35), 0 0 5px var(--glinv-good-glow);
+    animation: glinv-die-roll 0.4s var(--glinv-ease-spring) both;
+}
+.glinv-scope .glinv-pool-pip-filled.glinv-pool-low { background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 45%), linear-gradient(180deg, color-mix(in srgb, var(--glinv-warn) 80%, white), var(--glinv-warn)); }
+.glinv-scope .glinv-pool-pip-filled.glinv-pool-critical,
+.glinv-scope .glinv-pool-pip-filled.glinv-pool-empty { background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 45%), linear-gradient(180deg, color-mix(in srgb, var(--glinv-danger) 80%, white), var(--glinv-danger)); }
+
+/* Ammo die display: a beveled die face with a large denomination */
 .glinv-scope .glinv-ammo-die-display {
     display: inline-flex;
     align-items: center;
-    gap: 0.3rem;
-    padding: 0.2rem 0.5rem;
-    border-radius: var(--glinv-radius-sm);
-    background: var(--glinv-surface-2);
+    gap: 0.35rem;
+    padding: 0.25rem 0.55rem;
+    border-radius: 7px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 45%),
+        var(--glinv-surface-2);
     border: 1px solid var(--glinv-edge);
-    font-weight: 700;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 2px 6px rgba(0, 0, 0, 0.45);
+    font-weight: 800;
+    letter-spacing: 0.02em;
 }
-.glinv-scope .glinv-ammo-die-display i { animation: glinv-die-step 0.5s var(--glinv-ease) 1; }
-.glinv-scope .glinv-ammo-die-low { color: var(--glinv-warn); border-color: var(--glinv-warn); }
-.glinv-scope .glinv-ammo-die-last { color: var(--glinv-danger); border-color: var(--glinv-danger); }
+.glinv-scope .glinv-ammo-die-label { font-size: 1.05rem; line-height: 1; }
+.glinv-scope .glinv-ammo-die-display i { font-size: 0.8rem; animation: glinv-die-step 0.5s var(--glinv-ease) 1; }
+.glinv-scope .glinv-ammo-die-low { color: var(--glinv-warn); border-color: var(--glinv-warn); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 0 10px var(--glinv-warn-glow); }
+.glinv-scope .glinv-ammo-die-low i { color: var(--glinv-warn); }
+.glinv-scope .glinv-ammo-die-last { color: var(--glinv-danger); border-color: var(--glinv-danger); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 0 12px var(--glinv-danger-glow); animation: glinv-dread 3.2s var(--glinv-ease) infinite; }
+.glinv-scope .glinv-ammo-die-last i { color: var(--glinv-danger); }
 .glinv-scope .glinv-ammo-die-empty { color: var(--glinv-muted); opacity: 0.6; }
 
 /* Quality / temper badges */
@@ -449,20 +529,37 @@
 .glinv-scope .glinv-header-chip.glinv-overburdened { border-color: var(--glinv-danger); animation: glinv-dread 3.2s var(--glinv-ease) infinite; }
 .glinv-scope .glinv-header-chip.glinv-overburdened .glinv-hc-used { color: var(--glinv-danger); }
 
-/* ─── ±N Float Delta ────────────────────────────────────────────────── */
+/* ─── Slot-Machine Reel Count + Trend Triangle ──────────────────────── */
 .glinv-scope .glinv-slot-count { position: relative; }
-.glinv-scope .glinv-float-delta {
+
+/* Each digit is a 1em window onto a vertical 0–9 strip that slides into place. */
+.glinv-scope .glinv-reel-num { display: inline-flex; }
+.glinv-scope .glinv-reel {
+    display: inline-block;
+    height: 1em;
+    line-height: 1;
+    overflow: hidden;
+    vertical-align: bottom;
+}
+.glinv-scope .glinv-reel-strip {
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.55s cubic-bezier(0.2, 0.85, 0.25, 1);
+}
+.glinv-scope .glinv-reel-digit { height: 1em; line-height: 1; text-align: center; }
+
+/* Green ▼ lighter / red ▲ heavier, rising/falling then fading out. */
+.glinv-scope .glinv-trend {
     position: absolute;
-    right: -0.2rem;
-    top: -0.3rem;
-    font-size: 0.78rem;
-    font-weight: 800;
-    font-variant-numeric: tabular-nums;
+    right: -0.85rem;
+    top: 50%;
+    font-size: 0.7rem;
+    line-height: 1;
     pointer-events: none;
     text-shadow: 0 0 8px currentColor;
 }
-.glinv-scope .glinv-delta-up { color: var(--glinv-danger); animation: glinv-float-up 0.9s var(--glinv-ease-soft) both; }
-.glinv-scope .glinv-delta-down { color: var(--glinv-good); animation: glinv-float-down 0.9s var(--glinv-ease-soft) both; }
+.glinv-scope .glinv-trend-up { color: var(--glinv-danger); animation: glinv-float-up 1.4s var(--glinv-ease-soft) both; }
+.glinv-scope .glinv-trend-down { color: var(--glinv-good); animation: glinv-float-down 1.4s var(--glinv-ease-soft) both; }
 
 /* ─── Quickdraw Belt ────────────────────────────────────────────────── */
 .glinv-scope .glinv-quickdraw-belt {
