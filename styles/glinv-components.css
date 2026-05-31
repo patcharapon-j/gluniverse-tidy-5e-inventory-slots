@@ -1,0 +1,859 @@
+/* =====================================================================
+ * GLUniverse — Active Inventory  ·  Component Redesign (v3)
+ * ---------------------------------------------------------------------
+ * Premium dark-HUD styling for the inline panels injected via the Tidy 5e
+ * registration API. Loaded LAST so it takes precedence over the legacy
+ * floating-panel rules in inventory-slots.css. Everything is scoped under
+ * `.glinv-scope` and consumes the tokens in glinv-design-system.css.
+ * ===================================================================== */
+
+/* The injected roots flow inline within the sheet. No entrance animation —
+ * the only motion is on value change (the count reel / trend triangle). */
+.glinv-scope.glinv-actor-root,
+.glinv-scope.glinv-item-root {
+    position: static;
+    display: block;
+    width: 100%;
+    margin: 0.5rem 0;
+}
+
+/* ─── Slot Panel ────────────────────────────────────────────────────── */
+.glinv-scope .glinv-slot-panel {
+    padding: 0.28rem 0.45rem 0.36rem;
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.glinv-scope .glinv-grid-header {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.26rem;
+}
+
+.glinv-scope .glinv-slot-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    color: var(--glinv-muted);
+}
+.glinv-scope .glinv-slot-label i { color: var(--glinv-tint); }
+
+.glinv-scope .glinv-slot-count {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.15rem;
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+}
+.glinv-scope .glinv-count-used {
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+.glinv-scope .glinv-count-sep { color: var(--glinv-muted); opacity: 0.6; }
+.glinv-scope .glinv-count-max { color: var(--glinv-muted); font-weight: 600; }
+
+.glinv-scope .glinv-state-badge {
+    margin-left: 0.45rem;
+    padding: 0.08rem 0.45rem;
+    border-radius: var(--glinv-radius-pill);
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    background: var(--glinv-warn-glow);
+    color: var(--glinv-warn);
+    border: 1px solid var(--glinv-warn);
+}
+
+.glinv-scope .glinv-quickdraw-info {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.7rem;
+    color: var(--glinv-gold);
+    margin-left: 0.5rem;
+}
+
+.glinv-scope .glinv-settings-btn {
+    margin-left: 0.4rem;
+    width: 1.6rem;
+    height: 1.6rem;
+    display: grid;
+    place-items: center;
+    border-radius: var(--glinv-radius-sm);
+    border: 1px solid var(--glinv-edge);
+    background: var(--glinv-surface-2);
+    color: var(--glinv-muted);
+    cursor: pointer;
+    transition: transform var(--glinv-dur) var(--glinv-ease-spring),
+                color var(--glinv-dur) var(--glinv-ease),
+                box-shadow var(--glinv-dur) var(--glinv-ease);
+}
+.glinv-scope .glinv-settings-btn:hover {
+    color: var(--glinv-ink);
+    transform: rotate(45deg);
+    box-shadow: 0 0 12px var(--glinv-glow-soft);
+}
+
+/* ─── Slot Boxes (clean pips, no group well) ────────────────────────── */
+.glinv-scope .glinv-slot-boxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.32rem;            /* spacing between blocks of 5 */
+}
+.glinv-scope .glinv-slot-group {
+    display: flex;
+    gap: 0.16rem;            /* tight within a block */
+    /* no background / no recessed well — pips sit directly on the panel */
+}
+.glinv-scope .glinv-slot-box {
+    width: 0.82rem;
+    height: 0.82rem;
+    border-radius: 2px;
+    /* empty = subtle flat recess, not a heavy shaded tile */
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+    transition: background 0.16s var(--glinv-ease), box-shadow 0.16s var(--glinv-ease);
+}
+.glinv-scope .glinv-slot-box.glinv-filled {
+    /* filled = raised shaded tile with a top sheen */
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0) 45%),
+        linear-gradient(180deg, color-mix(in srgb, var(--glinv-tint) 78%, white), var(--glinv-tint) 60%, color-mix(in srgb, var(--glinv-tint) 70%, black));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        inset 0 -2px 3px rgba(0, 0, 0, 0.35),
+        0 1px 2px rgba(0, 0, 0, 0.45),
+        0 0 6px var(--glinv-glow-soft);
+}
+.glinv-scope .glinv-slot-box.glinv-over {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 45%),
+        linear-gradient(180deg, color-mix(in srgb, var(--glinv-danger) 80%, white), var(--glinv-danger) 60%, color-mix(in srgb, var(--glinv-danger) 70%, black));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.5),
+        inset 0 -2px 3px rgba(0, 0, 0, 0.4),
+        0 1px 2px rgba(0, 0, 0, 0.5),
+        0 0 8px var(--glinv-danger-glow);
+}
+
+/* Stateful panel glows */
+.glinv-scope .glinv-slot-panel.glinv-heavy { box-shadow: var(--glinv-shadow-raised), 0 0 18px var(--glinv-warn-glow); }
+.glinv-scope .glinv-slot-panel.glinv-encumbered .glinv-count-used { color: var(--glinv-warn); }
+.glinv-scope .glinv-slot-panel.glinv-overburdened {
+    box-shadow: var(--glinv-shadow-raised), 0 0 16px var(--glinv-danger-glow);
+    border-color: color-mix(in srgb, var(--glinv-danger) 50%, var(--glinv-edge));
+}
+.glinv-scope .glinv-slot-panel.glinv-overburdened .glinv-count-used { color: var(--glinv-danger); }
+
+/* ─── Inventory Row Badges ──────────────────────────────────────────── */
+.glinv-scope .glinv-item-slots,
+.tidy5e-sheet .glinv-item-slots {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.12rem;
+    margin-left: 0.4rem;
+    vertical-align: middle;
+}
+.tidy5e-sheet .glinv-sq {
+    width: 0.5rem;
+    height: 0.5rem;
+    border-radius: 2px;
+    display: inline-block;
+}
+.tidy5e-sheet .glinv-sq-normal {
+    background: var(--glinv-tint, #6b86d6);
+    box-shadow: 0 0 4px rgba(120, 150, 225, 0.45);
+}
+.tidy5e-sheet .glinv-sq-quickdraw {
+    background: var(--glinv-gold, #f0c75e);
+    box-shadow: 0 0 5px rgba(240, 199, 94, 0.5);
+}
+.tidy5e-sheet .glinv-icon-quickdraw { color: var(--glinv-gold, #f0c75e); font-size: 0.7rem; }
+.tidy5e-sheet .glinv-icon-basic { color: #8aa1c2; font-size: 0.75rem; }
+.tidy5e-sheet .glinv-slot-compact-times,
+.tidy5e-sheet .glinv-slot-compact-num {
+    font-family: 'Oxanium', 'Segoe UI', system-ui, sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: var(--glinv-muted, #98a2b6);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Quickdraw row gold shimmer */
+.tidy5e-sheet .glinv-quickdraw-row {
+    position: relative;
+    box-shadow: inset 2px 0 0 var(--glinv-gold, #f0c75e);
+}
+
+/* ── Ammo / pool inline indicators: tactile die-chips (Oxanium) ──────── */
+.tidy5e-sheet .glinv-ammo-indicator,
+.tidy5e-sheet .glinv-pool-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.22rem;
+    margin-left: 0.4rem;
+    padding: 0.02rem 0.42rem 0.02rem 0.34rem;
+    border-radius: 5px;
+    vertical-align: middle;
+    font-family: 'Oxanium', 'Segoe UI', system-ui, sans-serif;
+    font-weight: 700;
+    font-size: 0.68rem;
+    letter-spacing: 0.01em;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.2));
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+.tidy5e-sheet .glinv-ammo-indicator i,
+.tidy5e-sheet .glinv-pool-indicator i { font-size: 0.62rem; }
+.tidy5e-sheet .glinv-ammo-ind-label,
+.tidy5e-sheet .glinv-pool-ind-label { font-variant-numeric: tabular-nums; }
+
+.tidy5e-sheet .glinv-ammo-indicator { color: #cfe0ff; }
+.tidy5e-sheet .glinv-ammo-indicator i { color: var(--glinv-tint, #6b86d6); }
+.tidy5e-sheet .glinv-ammo-ind-low { color: #ffe6ad; border-color: rgba(231, 185, 85, 0.5); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 0 8px rgba(231, 185, 85, 0.35); }
+.tidy5e-sheet .glinv-ammo-ind-low i { color: var(--glinv-warn, #e7b955); }
+.tidy5e-sheet .glinv-ammo-ind-last { color: #ffc9c4; border-color: rgba(224, 88, 79, 0.6); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 0 9px rgba(224, 88, 79, 0.5); }
+.tidy5e-sheet .glinv-ammo-ind-last i { color: var(--glinv-danger, #e0584f); }
+.tidy5e-sheet .glinv-ammo-ind-empty { color: #9aa3b5; opacity: 0.65; }
+
+.tidy5e-sheet .glinv-pool-indicator { color: #d0f3e0; }
+.tidy5e-sheet .glinv-pool-indicator i { color: var(--glinv-good, #67d39b); }
+.tidy5e-sheet .glinv-pool-ind-low { color: #ffe6ad; border-color: rgba(231, 185, 85, 0.5); }
+.tidy5e-sheet .glinv-pool-ind-low i { color: var(--glinv-warn, #e7b955); }
+.tidy5e-sheet .glinv-pool-ind-critical { color: #ffc9c4; border-color: rgba(224, 88, 79, 0.55); }
+.tidy5e-sheet .glinv-pool-ind-critical i { color: var(--glinv-danger, #e0584f); }
+.tidy5e-sheet .glinv-pool-ind-depleted { color: #9aa3b5; opacity: 0.65; }
+
+/* ── Notch indicator: carved gouge marks + temper gem ───────────────── */
+.tidy5e-sheet .glinv-notch-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.1rem;
+    margin-left: 0.4rem;
+    vertical-align: middle;
+    font-family: 'Oxanium', 'Segoe UI', system-ui, sans-serif;
+}
+.tidy5e-sheet .glinv-notch-pip {
+    width: 3px;
+    height: 0.8rem;
+    transform: skewX(-20deg);
+    border-radius: 1px;
+    background: linear-gradient(180deg, rgba(232, 96, 86, 0.98), rgba(120, 30, 25, 0.88));
+    box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.55), 0 0 4px rgba(224, 88, 79, 0.45);
+}
+.tidy5e-sheet .glinv-notch-critical .glinv-notch-pip {
+    box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.55), 0 0 6px rgba(224, 88, 79, 0.6);
+}
+.tidy5e-sheet .glinv-notch-count {
+    font-size: 0.66rem;
+    font-weight: 700;
+    color: var(--glinv-danger, #e0584f);
+    font-variant-numeric: tabular-nums;
+}
+.tidy5e-sheet .glinv-shattered { color: var(--glinv-danger, #e0584f); }
+
+/* Temper gem badge — faceted ◆ with grade-tinted halo */
+.tidy5e-sheet .glinv-temper-badge {
+    font-size: 0.66rem;
+    filter: drop-shadow(0 0 4px currentColor);
+}
+.tidy5e-sheet .glinv-temper-pure { color: #9fd0ff; }
+.tidy5e-sheet .glinv-temper-royal { color: #c79bff; }
+.tidy5e-sheet .glinv-temper-astral { color: #ffd27a; }
+
+/* ─── Item Config Sections ──────────────────────────────────────────── */
+.glinv-scope .glinv-item-config {
+    margin-bottom: 0.7rem;
+    padding: 0.7rem;
+    border-radius: var(--glinv-radius);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(255, 255, 255, 0) 40%),
+        var(--glinv-surface);
+    border: 1px solid var(--glinv-edge);
+    box-shadow: var(--glinv-shadow-chip);
+}
+.glinv-scope .glinv-config-header {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin: 0 0 0.55rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--glinv-ink);
+    border-bottom: 1px solid var(--glinv-hair);
+    padding-bottom: 0.35rem;
+}
+.glinv-scope .glinv-config-header i { color: var(--glinv-tint); }
+
+.glinv-scope .glinv-item-fields { display: flex; flex-direction: column; gap: 0.5rem; }
+.glinv-scope .glinv-item-field { display: flex; flex-direction: column; gap: 0.2rem; }
+.glinv-scope .glinv-item-field > label {
+    font-size: 0.68rem;
+    color: var(--glinv-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+.glinv-scope .glinv-checkbox-field > label {
+    flex-direction: row;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    text-transform: none;
+    color: var(--glinv-ink);
+    cursor: pointer;
+}
+
+/* Inputs & selects */
+.glinv-scope select,
+.glinv-scope input[type="number"],
+.glinv-scope input[type="text"] {
+    width: 100%;
+    padding: 0.32rem 0.45rem;
+    border-radius: var(--glinv-radius-sm);
+    border: 1px solid var(--glinv-edge);
+    background: var(--glinv-well);
+    color: var(--glinv-ink);
+    font-family: var(--glinv-font);
+    font-size: 0.8rem;
+    transition: border-color var(--glinv-dur) var(--glinv-ease),
+                box-shadow var(--glinv-dur) var(--glinv-ease);
+}
+.glinv-scope select:focus,
+.glinv-scope input:focus {
+    outline: none;
+    border-color: var(--glinv-tint);
+    box-shadow: 0 0 0 2px var(--glinv-glow-soft);
+}
+
+/* Tactile buttons */
+.glinv-scope button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.35rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: var(--glinv-radius-sm);
+    border: 1px solid var(--glinv-edge);
+    background: linear-gradient(180deg, var(--glinv-surface-2), var(--glinv-surface));
+    color: var(--glinv-ink);
+    font-family: var(--glinv-font);
+    font-size: 0.74rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.12s var(--glinv-ease-spring),
+                box-shadow var(--glinv-dur) var(--glinv-ease),
+                border-color var(--glinv-dur) var(--glinv-ease);
+}
+.glinv-scope button:hover:not(:disabled) {
+    border-color: var(--glinv-tint);
+    box-shadow: 0 0 14px var(--glinv-glow-soft);
+    transform: translateY(-1px);
+}
+.glinv-scope button:active:not(:disabled) { transform: translateY(0) scale(0.97); }
+.glinv-scope button:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.glinv-scope .glinv-notch-controls,
+.glinv-scope .glinv-ammo-controls,
+.glinv-scope .glinv-pool-controls {
+    display: flex;
+    gap: 0.4rem;
+}
+.glinv-scope .glinv-notch-controls button,
+.glinv-scope .glinv-ammo-controls button,
+.glinv-scope .glinv-pool-controls button { flex: 1; }
+
+/* Status rows */
+.glinv-scope .glinv-notch-status,
+.glinv-scope .glinv-ammo-status,
+.glinv-scope .glinv-pool-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+.glinv-scope .glinv-notch-value,
+.glinv-scope .glinv-ammo-max,
+.glinv-scope .glinv-pool-fraction {
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+    font-weight: 700;
+}
+
+/* Notch bar / pool dice bar pips */
+.glinv-scope .glinv-notch-bar,
+.glinv-scope .glinv-pool-dice-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.18rem;
+    padding: 0.3rem;
+    border-radius: var(--glinv-radius-sm);
+    background: var(--glinv-well);
+    box-shadow: var(--glinv-shadow-inset);
+}
+/* Notch bar: carved gouges into a recessed strip */
+.glinv-scope .glinv-notch-bar-pip {
+    width: 0.45rem;
+    height: 0.85rem;
+    border-radius: 2px;
+    transform: skewX(-14deg);
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.4), rgba(255, 255, 255, 0.03));
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.glinv-scope .glinv-notch-bar-filled {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--glinv-danger) 85%, white), var(--glinv-danger), color-mix(in srgb, var(--glinv-danger) 70%, black));
+    box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 0 5px var(--glinv-danger-glow);
+}
+
+/* Dice-pool pips: beveled dice cubes */
+.glinv-scope .glinv-pool-pip {
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 3px;
+    background: linear-gradient(180deg, rgba(0, 0, 0, 0.34), rgba(255, 255, 255, 0.03));
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+.glinv-scope .glinv-pool-pip-filled {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 45%),
+        linear-gradient(180deg, color-mix(in srgb, var(--glinv-good) 80%, white), var(--glinv-good) 60%, color-mix(in srgb, var(--glinv-good) 70%, black));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -2px 3px rgba(0, 0, 0, 0.35), 0 0 5px var(--glinv-good-glow);
+}
+.glinv-scope .glinv-pool-pip-filled.glinv-pool-low { background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 45%), linear-gradient(180deg, color-mix(in srgb, var(--glinv-warn) 80%, white), var(--glinv-warn)); }
+.glinv-scope .glinv-pool-pip-filled.glinv-pool-critical,
+.glinv-scope .glinv-pool-pip-filled.glinv-pool-empty { background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 45%), linear-gradient(180deg, color-mix(in srgb, var(--glinv-danger) 80%, white), var(--glinv-danger)); }
+
+/* ═══ Compact Card System (ammo dice / dice pool) ════════════════════ */
+.glinv-scope .glinv-card {
+    padding: 0.5rem 0.55rem;
+    margin-bottom: 0.5rem;
+    border-radius: 7px;
+}
+.glinv-scope .glinv-card-head {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--glinv-hair);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.glinv-scope .glinv-card-head > i { color: var(--glinv-tint); }
+.glinv-scope .glinv-card-title { color: var(--glinv-ink); }
+.glinv-scope .glinv-card-tag {
+    margin-left: auto;
+    padding: 0.05rem 0.5rem;
+    border-radius: var(--glinv-radius-pill);
+    background: var(--glinv-well);
+    border: 1px solid var(--glinv-edge);
+    font-size: 0.78rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    color: var(--glinv-ink);
+}
+
+/* Hero rows */
+.glinv-scope .glinv-die-hero { display: flex; align-items: center; gap: 0.55rem; margin-bottom: 0.5rem; }
+.glinv-scope .glinv-pool-hero { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+
+/* Ammo: rounded die face + depletion track */
+.glinv-scope .glinv-die {
+    width: 2.1rem;
+    height: 2.1rem;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 48%),
+        var(--glinv-surface-2);
+    border: 1px solid var(--glinv-edge);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+.glinv-scope .glinv-die-face { font-weight: 800; font-size: 0.92rem; color: var(--glinv-tint); }
+.glinv-scope .glinv-die-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.32rem; }
+.glinv-scope .glinv-die-track { display: flex; gap: 0.2rem; }
+.glinv-scope .glinv-step {
+    flex: 1;
+    height: 0.42rem;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.55);
+    transition: background 0.18s var(--glinv-ease), box-shadow 0.18s var(--glinv-ease);
+}
+.glinv-scope .glinv-step.on {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--glinv-tint) 82%, white), var(--glinv-tint));
+    box-shadow: 0 0 5px var(--glinv-glow-soft);
+}
+.glinv-scope .glinv-die-sub { font-size: 0.64rem; color: var(--glinv-muted); letter-spacing: 0; text-transform: none; }
+
+/* Pool fraction readout */
+.glinv-scope .glinv-pool-fraction { margin-left: auto; font-weight: 800; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.glinv-scope .glinv-pool-fraction small { color: var(--glinv-muted); font-weight: 600; font-size: 0.72rem; }
+
+/* Tactile icon-button row */
+.glinv-scope .glinv-btn-row { display: flex; gap: 0.35rem; margin-bottom: 0.5rem; }
+.glinv-scope .glinv-icon-btn {
+    flex: 1;
+    padding: 0.34rem 0;
+    font-size: 0.82rem;
+}
+
+/* Compact field grid */
+.glinv-scope .glinv-mini-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.35rem 0.45rem;
+    align-items: center;
+}
+.glinv-scope .glinv-mini-field { display: flex; flex-direction: column; gap: 0.15rem; }
+.glinv-scope .glinv-mini-field > span { font-size: 0.62rem; color: var(--glinv-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.glinv-scope .glinv-mini-field select,
+.glinv-scope .glinv-mini-field input { padding: 0.26rem 0.4rem; font-size: 0.76rem; }
+.glinv-scope .glinv-mini-check {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+    color: var(--glinv-ink);
+    cursor: pointer;
+}
+.glinv-scope .glinv-mini-check i { color: var(--glinv-tint); font-size: 0.72rem; }
+
+/* Inline depleted/empty banner */
+.glinv-scope .glinv-card-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+    padding: 0.3rem 0.45rem;
+    border-radius: var(--glinv-radius-sm);
+    background: var(--glinv-danger-soft);
+    border: 1px solid var(--glinv-danger);
+    color: var(--glinv-danger);
+    font-size: 0.72rem;
+    font-weight: 700;
+}
+
+/* ── Ammo card state accents (class on card root) ────────────────────── */
+.glinv-scope .glinv-ammo-die-low .glinv-die-face,
+.glinv-scope .glinv-ammo-die-low .glinv-card-tag { color: var(--glinv-warn); }
+.glinv-scope .glinv-ammo-die-low .glinv-step.on { background: linear-gradient(180deg, color-mix(in srgb, var(--glinv-warn) 82%, white), var(--glinv-warn)); box-shadow: 0 0 5px var(--glinv-warn-glow); }
+.glinv-scope .glinv-ammo-die-last .glinv-die-face,
+.glinv-scope .glinv-ammo-die-last .glinv-card-tag { color: var(--glinv-danger); }
+.glinv-scope .glinv-ammo-die-last .glinv-die { border-color: var(--glinv-danger); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 0 12px var(--glinv-danger-glow); }
+.glinv-scope .glinv-ammo-die-last .glinv-step.on { background: linear-gradient(180deg, color-mix(in srgb, var(--glinv-danger) 82%, white), var(--glinv-danger)); box-shadow: 0 0 5px var(--glinv-danger-glow); }
+.glinv-scope .glinv-ammo-die-empty .glinv-die-face,
+.glinv-scope .glinv-ammo-die-empty .glinv-card-tag { color: var(--glinv-muted); }
+.glinv-scope .glinv-ammo-die-empty .glinv-die { opacity: 0.7; }
+
+/* ── Pool card state accents ─────────────────────────────────────────── */
+.glinv-scope .glinv-pool-critical .glinv-card-tag,
+.glinv-scope .glinv-pool-empty .glinv-card-tag { color: var(--glinv-danger); }
+.glinv-scope .glinv-pool-low .glinv-card-tag { color: var(--glinv-warn); }
+
+/* ── Weapon→ammo pairing readout (shares the die look) ───────────────── */
+.glinv-scope .glinv-ammo-die-display {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.22rem 0.5rem;
+    border-radius: 7px;
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 48%), var(--glinv-surface-2);
+    border: 1px solid var(--glinv-edge);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 2px 6px rgba(0, 0, 0, 0.4);
+    font-weight: 800;
+    color: var(--glinv-tint);
+}
+.glinv-scope .glinv-ammo-die-display .glinv-ammo-die-label { font-size: 1rem; line-height: 1; }
+.glinv-scope .glinv-ammo-die-display.glinv-ammo-die-low { color: var(--glinv-warn); border-color: var(--glinv-warn); }
+.glinv-scope .glinv-ammo-die-display.glinv-ammo-die-last { color: var(--glinv-danger); border-color: var(--glinv-danger); }
+.glinv-scope .glinv-ammo-die-display.glinv-ammo-die-empty { color: var(--glinv-muted); opacity: 0.7; }
+.glinv-scope .glinv-ammo-paired-name { color: var(--glinv-muted); font-size: 0.74rem; }
+
+/* Quality / temper badges */
+.glinv-scope .glinv-quality-badge,
+.glinv-scope .glinv-temper-badge {
+    padding: 0.05rem 0.4rem;
+    border-radius: var(--glinv-radius-pill);
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border: 1px solid var(--glinv-edge);
+}
+.glinv-scope .glinv-quality-pristine { color: var(--glinv-good); border-color: var(--glinv-good); }
+.glinv-scope .glinv-quality-worn { color: #c9d2e4; }
+.glinv-scope .glinv-quality-wellWorn { color: var(--glinv-warn); border-color: var(--glinv-warn); }
+.glinv-scope .glinv-quality-scarred { color: var(--glinv-danger); border-color: var(--glinv-danger); }
+.glinv-scope .glinv-temper-pure { color: #9fd0ff; }
+.glinv-scope .glinv-temper-royal { color: #c79bff; }
+.glinv-scope .glinv-temper-astral { color: #ffd27a; }
+
+/* Banners */
+.glinv-scope .glinv-shattered-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.4rem 0.55rem;
+    margin-bottom: 0.55rem;
+    border-radius: var(--glinv-radius-sm);
+    background: var(--glinv-danger-soft);
+    color: var(--glinv-danger);
+    border: 1px solid var(--glinv-danger);
+    font-weight: 700;
+    font-size: 0.74rem;
+}
+
+.glinv-scope .glinv-repair-info,
+.glinv-scope .glinv-pool-info,
+.glinv-scope .glinv-notch-effect,
+.glinv-scope .glinv-field-hint {
+    font-size: 0.68rem;
+    color: var(--glinv-muted);
+}
+.glinv-scope .glinv-degraded { color: var(--glinv-danger); }
+
+/* ─── Header Readout Chip ───────────────────────────────────────────── */
+.glinv-scope.glinv-header-chip-root { display: inline-flex; vertical-align: middle; margin-right: 0.4rem; }
+.glinv-scope .glinv-header-chip {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.18rem;
+    padding: 0.12rem 0.5rem;
+    border-radius: var(--glinv-radius-pill);
+    background: var(--glinv-surface-2);
+    border: 1px solid var(--glinv-edge);
+    box-shadow: var(--glinv-shadow-chip);
+    font-family: var(--glinv-font);
+    font-size: 0.78rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--glinv-ink);
+    line-height: 1.2;
+}
+.glinv-scope .glinv-header-chip i { color: var(--glinv-tint); font-size: 0.72rem; align-self: center; }
+.glinv-scope .glinv-header-chip .glinv-hc-sep,
+.glinv-scope .glinv-header-chip .glinv-hc-max { color: var(--glinv-muted); font-weight: 600; }
+.glinv-scope .glinv-header-chip.glinv-heavy { box-shadow: var(--glinv-shadow-chip), 0 0 10px var(--glinv-warn-glow); }
+.glinv-scope .glinv-header-chip.glinv-encumbered { border-color: var(--glinv-warn); }
+.glinv-scope .glinv-header-chip.glinv-encumbered .glinv-hc-used { color: var(--glinv-warn); }
+.glinv-scope .glinv-header-chip.glinv-overburdened { border-color: var(--glinv-danger); box-shadow: var(--glinv-shadow-chip), 0 0 10px var(--glinv-danger-glow); }
+.glinv-scope .glinv-header-chip.glinv-overburdened .glinv-hc-used { color: var(--glinv-danger); }
+
+/* ─── Slot-Machine Reel Count + Trend Triangle ──────────────────────── */
+.glinv-scope .glinv-slot-count { position: relative; }
+
+/* Each digit is a 1em window onto a vertical 0–9 strip that slides into place. */
+.glinv-scope .glinv-reel-num { display: inline-flex; }
+.glinv-scope .glinv-reel {
+    display: inline-block;
+    height: 1em;
+    line-height: 1;
+    overflow: hidden;
+    vertical-align: bottom;
+}
+.glinv-scope .glinv-reel-strip {
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.55s cubic-bezier(0.2, 0.85, 0.25, 1);
+}
+.glinv-scope .glinv-reel-digit { height: 1em; line-height: 1; text-align: center; }
+
+/* Green ▼ lighter / red ▲ heavier, rising/falling then fading out. */
+.glinv-scope .glinv-trend {
+    position: absolute;
+    right: -0.85rem;
+    top: 50%;
+    font-size: 0.7rem;
+    line-height: 1;
+    pointer-events: none;
+    text-shadow: 0 0 8px currentColor;
+}
+.glinv-scope .glinv-trend-up { color: var(--glinv-danger); animation: glinv-float-up 1.4s var(--glinv-ease-soft) both; }
+.glinv-scope .glinv-trend-down { color: var(--glinv-good); animation: glinv-float-down 1.4s var(--glinv-ease-soft) both; }
+
+/* ─── Quickdraw Belt ────────────────────────────────────────────────── */
+.glinv-scope .glinv-quickdraw-belt {
+    margin-top: 0.6rem;
+    padding-top: 0.55rem;
+    border-top: 1px dashed color-mix(in srgb, var(--glinv-gold) 40%, transparent);
+}
+.glinv-scope .glinv-qd-belt-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--glinv-gold);
+    margin-bottom: 0.4rem;
+}
+.glinv-scope .glinv-qd-belt-count {
+    color: var(--glinv-muted);
+    font-variant-numeric: tabular-nums;
+}
+.glinv-scope .glinv-qd-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+}
+.glinv-scope .glinv-qd-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    max-width: 11rem;
+    padding: 0.22rem 0.5rem 0.22rem 0.28rem;
+    border-radius: var(--glinv-radius-pill);
+    background: linear-gradient(180deg, rgba(240, 199, 94, 0.12), rgba(240, 199, 94, 0.04));
+    border: 1px solid color-mix(in srgb, var(--glinv-gold) 55%, var(--glinv-edge));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 0 10px var(--glinv-gold-glow);
+    overflow: hidden;
+    transition: transform 0.16s var(--glinv-ease), box-shadow var(--glinv-dur) var(--glinv-ease);
+}
+.glinv-scope .glinv-qd-chip:hover {
+    transform: translateY(-1px) scale(1.02);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 0 16px var(--glinv-gold-glow);
+}
+.glinv-scope .glinv-qd-chip img {
+    width: 1.2rem;
+    height: 1.2rem;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 1px solid color-mix(in srgb, var(--glinv-gold) 60%, transparent);
+    flex: none;
+}
+.glinv-scope .glinv-qd-chip i { color: var(--glinv-gold); font-size: 0.7rem; }
+.glinv-scope .glinv-qd-chip-name {
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--glinv-ink);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* ─── Settings Dialog (DialogV2) skin ───────────────────────────────── */
+.glinv-scope .glinv-override-form .form-group { margin-bottom: 0.6rem; }
+
+/* ═══ Chat Cards (ammo roll / pool roll results) ═════════════════════ */
+.glinv-scope.glinv-chat-card {
+    padding: 0.5rem 0.6rem;
+    border-radius: 8px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 38%),
+        var(--glinv-surface);
+    border: 1px solid var(--glinv-edge);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 2px 8px rgba(0, 0, 0, 0.4);
+    color: var(--glinv-ink);
+    font-family: var(--glinv-font);
+}
+.glinv-scope .glinv-cc-head {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--glinv-hair);
+    font-weight: 700;
+    font-size: 0.82rem;
+}
+.glinv-scope .glinv-cc-head > i { color: var(--glinv-tint); }
+.glinv-scope .glinv-cc-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.glinv-scope .glinv-cc-tag {
+    margin-left: auto;
+    padding: 0.05rem 0.5rem;
+    border-radius: var(--glinv-radius-pill);
+    background: var(--glinv-well);
+    border: 1px solid var(--glinv-edge);
+    font-size: 0.74rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Ammo result hero */
+.glinv-scope .glinv-cc-body { display: flex; align-items: center; gap: 0.6rem; }
+.glinv-scope .glinv-cc-die {
+    width: 2.6rem;
+    height: 2.6rem;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 9px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 48%),
+        var(--glinv-surface-2);
+    border: 1px solid var(--glinv-edge);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 6px rgba(0, 0, 0, 0.45);
+    animation: glinv-die-step 0.45s var(--glinv-ease) 1;
+}
+.glinv-scope .glinv-cc-die-val { font-size: 1.3rem; font-weight: 800; }
+.glinv-scope .glinv-cc-die-spent { color: var(--glinv-danger); }
+.glinv-scope .glinv-cc-result { font-size: 0.82rem; font-weight: 600; display: flex; align-items: center; gap: 0.35rem; }
+
+/* Pool result dice */
+.glinv-scope .glinv-cc-dice { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.5rem; }
+.glinv-scope .glinv-cc-d {
+    width: 1.55rem;
+    height: 1.55rem;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    border: 1px solid var(--glinv-edge);
+    font-weight: 800;
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+    animation: glinv-die-roll 0.4s var(--glinv-ease-spring) both;
+}
+.glinv-scope .glinv-cc-d-kept {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 45%),
+        color-mix(in srgb, var(--glinv-good) 32%, var(--glinv-surface-2));
+    color: #e2faee;
+    border-color: color-mix(in srgb, var(--glinv-good) 55%, var(--glinv-edge));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 6px var(--glinv-good-glow);
+}
+.glinv-scope .glinv-cc-d-discarded {
+    background: color-mix(in srgb, var(--glinv-danger) 24%, var(--glinv-surface-2));
+    color: #ffd2cd;
+    border-color: color-mix(in srgb, var(--glinv-danger) 55%, var(--glinv-edge));
+    opacity: 0.8;
+    text-decoration: line-through;
+}
+
+/* Footer */
+.glinv-scope .glinv-cc-foot {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-top: 0.42rem;
+    border-top: 1px solid var(--glinv-hair);
+    font-size: 0.76rem;
+    font-weight: 600;
+}
+.glinv-scope .glinv-cc-foot i { margin-right: 0.2rem; }
+.glinv-scope .glinv-cc-lost { color: var(--glinv-danger); }
+.glinv-scope .glinv-cc-safe { color: var(--glinv-good); }
+.glinv-scope .glinv-cc-depleted { color: var(--glinv-danger); font-weight: 800; }
+.glinv-scope .glinv-cc-remain { margin-left: auto; color: var(--glinv-muted); font-variant-numeric: tabular-nums; }
+.glinv-scope .glinv-cc-remain small { font-weight: 600; }
+
+/* State tints */
+.glinv-scope .glinv-cc-good .glinv-cc-result, .glinv-scope .glinv-cc-good .glinv-cc-die-val { color: var(--glinv-good); }
+.glinv-scope .glinv-cc-warn .glinv-cc-result, .glinv-scope .glinv-cc-warn .glinv-cc-die-val { color: var(--glinv-warn); }
+.glinv-scope .glinv-cc-danger .glinv-cc-result, .glinv-scope .glinv-cc-danger .glinv-cc-die-val { color: var(--glinv-danger); }
+.glinv-scope .glinv-cc-danger .glinv-cc-die { border-color: var(--glinv-danger); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 0 12px var(--glinv-danger-glow); }
+.glinv-scope .glinv-cc-warn .glinv-cc-die { border-color: color-mix(in srgb, var(--glinv-warn) 60%, var(--glinv-edge)); }

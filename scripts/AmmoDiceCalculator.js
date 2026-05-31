@@ -277,36 +277,54 @@ export class AmmoDiceCalculator {
      */
     static async announceRoll(item, roll, degraded, newDie) {
         const actor = item.parent;
+        const L = (k) => game.i18n.localize(`GLINVSLOTS.${k}`);
+        const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        const faces = roll?.dice?.[0]?.faces;
 
-        let content = `<div class="glinv-ammo-chat">`;
-        content += `<strong>${item.name}</strong>`;
-
-        if (roll) {
-            content += ` — ${game.i18n.localize('GLINVSLOTS.ammo.rolled')}: <strong>${roll.total}</strong> `;
-            content += `(d${roll.dice[0]?.faces || '?'})`;
-
-            if (degraded) {
-                if (newDie === 1) {
-                    content += `<br><span class="glinv-ammo-warning">${game.i18n.localize('GLINVSLOTS.ammo.degradedToLast')}</span>`;
-                } else if (newDie <= 0) {
-                    content += `<br><span class="glinv-ammo-depleted">${game.i18n.localize('GLINVSLOTS.ammo.depleted')}</span>`;
-                } else {
-                    content += `<br><span class="glinv-ammo-degraded">${game.i18n.localize('GLINVSLOTS.ammo.degraded')}: d${newDie}</span>`;
-                }
-            } else {
-                content += `<br><small>${game.i18n.localize('GLINVSLOTS.ammo.noChange')}</small>`;
-            }
+        // Determine outcome + state tint.
+        let state, outcome, tag;
+        if (!roll) {
+            state = 'glinv-cc-danger';
+            outcome = `<i class="fas fa-ban"></i> ${L('ammo.lastShotUsed')}`;
+            tag = L('ammo.empty');
+        } else if (!degraded) {
+            state = 'glinv-cc-good';
+            outcome = `<i class="fas fa-check"></i> ${L('ammo.noChange')} · d${faces}`;
+            tag = `d${faces}`;
+        } else if (newDie <= 0) {
+            state = 'glinv-cc-danger';
+            outcome = `<i class="fas fa-times-circle"></i> d${faces} → ${L('ammo.empty')}`;
+            tag = L('ammo.empty');
+        } else if (newDie === 1) {
+            state = 'glinv-cc-danger';
+            outcome = `<i class="fas fa-exclamation-triangle"></i> d${faces} → ${L('ammo.lastShot')}`;
+            tag = L('ammo.lastShot');
         } else {
-            // Last shot used
-            content += `<br><span class="glinv-ammo-depleted">${game.i18n.localize('GLINVSLOTS.ammo.lastShotUsed')}</span>`;
+            state = 'glinv-cc-warn';
+            outcome = `<i class="fas fa-angles-down"></i> d${faces} → d${newDie}`;
+            tag = `d${newDie}`;
         }
 
-        content += `</div>`;
+        const hero = roll
+            ? `<div class="glinv-cc-die"><span class="glinv-cc-die-val">${roll.total}</span></div>`
+            : `<div class="glinv-cc-die glinv-cc-die-spent"><i class="fas fa-ban"></i></div>`;
+
+        const content = `
+            <div class="glinv-scope glinv-chat-card glinv-ammo-chat ${state}">
+                <div class="glinv-cc-head">
+                    <i class="fas fa-bullseye"></i><span class="glinv-cc-title">${esc(item.name)}</span>
+                    <span class="glinv-cc-tag">${tag}</span>
+                </div>
+                <div class="glinv-cc-body">
+                    ${hero}
+                    <div class="glinv-cc-result">${outcome}</div>
+                </div>
+            </div>`;
 
         await ChatMessage.create({
             speaker: ChatMessage.getSpeaker({ actor }),
             content,
-            flavor: `<i class="fas fa-bullseye"></i> ${game.i18n.localize('GLINVSLOTS.ammo.ammunitionDice')}`,
+            flavor: `<i class="fas fa-bullseye"></i> ${L('ammo.ammunitionDice')}`,
         });
     }
 

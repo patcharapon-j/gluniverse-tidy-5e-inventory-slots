@@ -228,45 +228,38 @@ export class DicePoolCalculator {
         const threshold = this.getDiscardThreshold(item);
         const maxSize = this.getMaxPoolSize(item);
 
-        let content = `<div class="glinv-pool-chat">`;
-        content += `<strong>${item.name}</strong>`;
-        content += `<div class="glinv-pool-chat-formula">${results.length}d${dieType}</div>`;
+        const L = (k) => game.i18n.localize(`GLINVSLOTS.${k}`);
+        const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-        // Show each die result with visual styling
-        content += `<div class="glinv-pool-chat-dice">`;
-        for (const val of results) {
-            const isDiscarded = val <= threshold;
-            const cls = isDiscarded ? 'glinv-pool-chat-die glinv-pool-chat-die-discarded' : 'glinv-pool-chat-die glinv-pool-chat-die-kept';
-            content += `<span class="${cls}">${val}</span>`;
-        }
-        content += `</div>`;
+        const state = newSize <= 0 ? 'glinv-cc-danger' : discarded.length > 0 ? 'glinv-cc-warn' : 'glinv-cc-good';
 
-        // Summary
-        if (discarded.length > 0) {
-            content += `<div class="glinv-pool-chat-summary">`;
-            content += `<span class="glinv-pool-chat-lost"><i class="fas fa-minus-circle"></i> ${discarded.length} ${game.i18n.localize('GLINVSLOTS.pool.diceLost')}</span>`;
-            content += `</div>`;
-        } else {
-            content += `<div class="glinv-pool-chat-summary">`;
-            content += `<span class="glinv-pool-chat-safe"><i class="fas fa-shield-alt"></i> ${game.i18n.localize('GLINVSLOTS.pool.noDiceLost')}</span>`;
-            content += `</div>`;
-        }
+        const dice = results.map((val) => {
+            const cls = val <= threshold ? 'glinv-cc-d glinv-cc-d-discarded' : 'glinv-cc-d glinv-cc-d-kept';
+            return `<span class="${cls}">${val}</span>`;
+        }).join('');
 
-        // Pool state
-        content += `<div class="glinv-pool-chat-state">`;
-        if (newSize <= 0) {
-            content += `<span class="glinv-pool-chat-depleted"><i class="fas fa-skull"></i> ${game.i18n.localize('GLINVSLOTS.pool.itemDepleted')}</span>`;
-        } else {
-            content += `<span>${game.i18n.localize('GLINVSLOTS.pool.remaining')}: <strong>${newSize}</strong> / ${maxSize}</span>`;
-        }
-        content += `</div>`;
+        const lost = discarded.length > 0
+            ? `<span class="glinv-cc-lost"><i class="fas fa-circle-minus"></i> ${discarded.length} ${L('pool.diceLost')}</span>`
+            : `<span class="glinv-cc-safe"><i class="fas fa-shield-halved"></i> ${L('pool.noDiceLost')}</span>`;
 
-        content += `</div>`;
+        const remain = newSize <= 0
+            ? `<span class="glinv-cc-depleted"><i class="fas fa-skull"></i> ${L('pool.itemDepleted')}</span>`
+            : `<span class="glinv-cc-remain">${newSize}<small>/${maxSize}</small></span>`;
+
+        const content = `
+            <div class="glinv-scope glinv-chat-card glinv-pool-chat ${state}">
+                <div class="glinv-cc-head">
+                    <i class="fas fa-cubes"></i><span class="glinv-cc-title">${esc(item.name)}</span>
+                    <span class="glinv-cc-tag">${results.length}d${dieType}</span>
+                </div>
+                <div class="glinv-cc-dice">${dice}</div>
+                <div class="glinv-cc-foot">${lost}${remain}</div>
+            </div>`;
 
         await ChatMessage.create({
             speaker: ChatMessage.getSpeaker({ actor }),
             content,
-            flavor: `<i class="fas fa-cubes"></i> ${game.i18n.localize('GLINVSLOTS.pool.dicePool')}`,
+            flavor: `<i class="fas fa-cubes"></i> ${L('pool.dicePool')}`,
         });
     }
 }

@@ -25,7 +25,7 @@ Foundry v13 uses **ApplicationV2** (`foundry.applications.sheets.ActorSheetV2`),
 - **Render hooks are different** — The traditional `renderActorSheet` Hooks do NOT fire for V2 sheets. V2 uses event emitters (`app.addEventListener('render', ...)`) and the `renderApplication` Hook.
 - **`sheet.element` is the raw DOM element** — not wrapped in jQuery. It's a `<form>` tag.
 
-### Tidy 5e Sheet — Quadrone Layout (v12.5.5)
+### Tidy 5e Sheet — Quadrone Layout (verified v13.4.3)
 
 Tidy 5e has TWO layouts:
 - **Classic** (AppV1) — uses `tidy5e-sheet.renderActorSheet` hook, jQuery-wrapped elements
@@ -102,9 +102,43 @@ The bar contains:
 
 Available via `game.modules.get('tidy5e-sheet').api` after `Hooks.once('tidy5e-sheet.ready', (api) => { ... })`.
 
-**Content registration** (`registerCharacterContent`, `registerNpcContent`, `registerItemContent`) requires wrapping in `api.models.HtmlContent` — plain objects will silently fail. However, for Quadrone sheets, this system requires static HTML strings and is less reliable than DOM injection via render hooks.
+> **Updated for Tidy 5e v13.x (verified v13.4.3).** The guidance below replaces
+> the old v12-era assumption that content registration was "classic-only" and
+> unreliable on Quadrone. As of v13, every `register*Content` / `register*Tab`
+> call fans out to BOTH the Classic and Quadrone runtimes, and content with
+> `renderScheme: 'handlebars'` is **automatically re-injected across Svelte
+> re-renders**. This is now the primary, recommended integration path — the old
+> floating-panel + RAF + body-wide MutationObserver approach has been removed (v3.0).
 
-**Recommended approach**: Use MutationObserver + render hooks for DOM injection rather than the Tidy5e content registration API.
+**Content registration** (`registerCharacterContent`, `registerNpcContent`,
+`registerItemContent`) takes an `api.models.HtmlContent` (or `HandlebarsContent`):
+
+```js
+api.registerCharacterContent(new api.models.HtmlContent({
+  html: () => `<div class="glinv-scope glinv-actor-root" data-tidy-render-scheme="handlebars"></div>`,
+  renderScheme: 'handlebars',                 // re-runs onRender on every change cycle
+  injectParams: { selector: '.encumbrance', position: 'afterend' },
+  enabled: () => /* feature flag */ true,
+  onRender: ({ app, element }) => { /* app.document is the actor; fill `element` */ },
+}), { layout: 'all' });                       // 'all' | 'classic' | 'quadrone'
+```
+
+Key points:
+- `renderScheme: 'handlebars'` is the re-render survival mechanism — prefer it for
+  anything that must persist. `'force'` only renders on a full re-render.
+- `onRender({ app, element, data, nodes })` — `app.document` is the actor/item;
+  `app.element` is the sheet root; `element` is the injected node. Binding event
+  listeners here is leak-free because each render hands you fresh nodes.
+- Detect Quadrone via `app.element.classList.contains('quadrone')`, theme via
+  `theme-dark` / `theme-light` classes + the `tidy5e-sheet.themeSettingsChanged` hook.
+- For row/summary buttons use `api.config.itemSummary.registerCommands([...])` and
+  `api.config.actorItem.registerSectionCommands([...])`.
+- `api.useHandlebarsRendering()` is **deprecated** (slated for removal). Put
+  `data-tidy-render-scheme="handlebars"` on top-level injected nodes instead.
+
+**Recommended approach (v3.0)**: register inline content via the API with
+`renderScheme: 'handlebars'`; do per-row badge annotation inside `onRender`
+(idempotent — remove-then-add). No floating panels, no RAF, no observer.
 
 ### Flag Scope
 
@@ -141,12 +175,20 @@ gluniverse-tidy-5e-inventory-slots/
 ├── module.json              # Manifest (dnd5e + tidy5e-sheet deps)
 ├── CLAUDE.md                # This file
 ├── scripts/
-│   ├── module.js            # Entry point, hooks, API
-│   ├── settings.js          # 13 module settings, constants, tables
-│   ├── SlotCalculator.js    # Core math engine (slots, bulk, encumbrance)
-│   └── TidyIntegration.js   # DOM injection, render hooks, MutationObserver
+│   ├── module.js            # Entry point, hooks, API, mechanical effects
+│   ├── settings.js          # Module settings, constants, tables, unwrapElement
+│   ├── SlotCalculator.js    # Slots/bulk/encumbrance math engine
+│   ├── NotchCalculator.js   # Wear & tear: notches, temper, shatter, repair
+│   ├── AmmoDiceCalculator.js# Ammunition dice (die-step depletion)
+│   ├── DicePoolCalculator.js# Resource dice pools
+│   └── TidyIntegration.js   # Inline integration via Tidy 5e registration API (v3)
 ├── styles/
-│   └── inventory-slots.css  # All styles (dark/quadrone/classic support)
+│   ├── glinv-design-system.css # Tokens, bundled @font-face, keyframe library
+│   ├── inventory-slots.css     # Legacy styles (kept; floating-panel rules now inert)
+│   └── glinv-components.css     # v3 dark-HUD component skin (loaded last)
+├── fonts/
+│   ├── Oxanium-latin.woff2      # Bundled variable display font (offline-safe)
+│   └── Oxanium-latin-ext.woff2
 └── languages/
     └── en.json              # English localization
 ```

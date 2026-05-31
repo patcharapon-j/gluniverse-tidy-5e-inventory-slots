@@ -6,71 +6,394 @@ import { DicePoolCalculator } from './DicePoolCalculator.js';
 
 /**
  * Handles all integration points with the Tidy 5e Sheet module.
- * Uses a floating panel attached to the bottom of the character sheet
- * to avoid Svelte re-render wipes.
+ *
+ * v3 architecture: registers inline content through the Tidy 5e v13 API
+ * (`register*Content` with `renderScheme: 'handlebars'`), so our UI lives
+ * inside the sheet and is re-applied automatically across Svelte re-renders.
+ * No floating panels, no requestAnimationFrame loop, no MutationObserver.
  */
 export class TidyIntegration {
 
     static _api = null;
-    /** Map<actorId, HTMLElement> — floating panels keyed by actor */
-    static _panels = new Map();
-    /** RAF handle for position tracking */
-    static _rafHandle = null;
-    /** Map<itemId, HTMLElement> — floating item config panels */
-    static _itemPanels = new Map();
+
+    /**
+     * Selector inside the inventory tab that our slot panel is injected after.
+     * Tidy 5e renders a `.encumbrance` meter on the character inventory tab; we
+     * anchor to it so the panel sits directly beneath the (replaced) bar.
+     *
+     * ── VERIFY IN-APP ── If the panel does not appear, this is the one knob to
+     * adjust: set it to a selector that exists on the open inventory tab (e.g.
+     * `[data-tidy-sheet-part="item-table"]` with position 'beforebegin').
+     */
+    static ACTOR_ANCHOR = { selector: '.encumbrance', position: 'afterend' };
 
     static init(api) {
         this._api = api;
-        console.log(`${MODULE_ID} | Tidy 5e API received, registering integrations`);
-        this._hookSheetRender();
-        this._setupDomObserver();
-        this._startPositionLoop();
+        console.log(`${MODULE_ID} | Tidy 5e API received — registering inline content (v3 architecture)`);
+        this._registerContent();
     }
 
-    // ─── Sheet Render Hooks ──────────────────────────────────────────
+    // ─── Registration-API Integration (Quadrone + Classic) ───────────
+    //
+    // As of Tidy 5e v13, `register*Content` fans out to BOTH the Classic and
+    // Quadrone runtimes and, with `renderScheme: 'handlebars'`, automatically
+    // re-injects across Svelte re-renders. This replaces the old floating-panel
+    // + requestAnimationFrame + body-wide MutationObserver machinery entirely:
+    // content lives *inside* the sheet, scrolls and drags with it, and never
+    // leaks listeners (each render hands us fresh nodes).
 
-    static _hookSheetRender() {
-        // Tidy 5e's own (Classic) render hook — harmless if it never fires.
-        Hooks.on('tidy5e-sheet.renderActorSheet', (app, element, data, forced) => {
-            this._processActorSheet(app, element);
+    static _registerContent() {
+        const api = this._api;
+        if (!api?.models?.HtmlContent) {
+            console.error(`${MODULE_ID} | Tidy 5e HtmlContent model unavailable — is tidy5e-sheet up to date (v13+)?`);
+            return;
+        }
+        const { HtmlContent } = api.models;
+
+        // — Actor: slot panel + per-row badges, injected into the inventory tab.
+        const actorContent = () => new HtmlContent({
+            html: () => `<div class="glinv-scope glinv-actor-root" data-tidy-render-scheme="handlebars"></div>`,
+            renderScheme: 'handlebars',
+            injectParams: this.ACTOR_ANCHOR,
+            enabled: () => this._anyFeatureEnabled(),
+            onRender: (params) => this._onActorRender(params),
         });
+        try {
+            api.registerCharacterContent(actorContent(), { layout: 'all' });
+            api.registerNpcContent(actorContent(), { layout: 'all' });
+        } catch (err) {
+            console.error(`${MODULE_ID} | Failed to register actor content:`, err);
+        }
 
-        // Application V1 render hooks (Foundry v13 and earlier). These are no-ops
-        // on v14, where Application V1 has been removed, but remain for back-compat.
-        Hooks.on('renderActorSheet', (app, html, data) => {
-            try { if (!this._api?.isTidy5eSheet(app)) return; } catch { return; }
-            this._processActorSheet(app, unwrapElement(html));
+        // — Item: configuration as a dedicated sheet tab. A registered tab is the
+        //   reliable Quadrone injection point (a content block with no anchor has
+        //   nowhere to render), and gives users a discoverable "Active Inventory"
+        //   tab on physical item sheets.
+        const PHYSICAL_ITEM_TYPES = ['weapon', 'equipment', 'consumable', 'tool', 'loot', 'container', 'backpack'];
+        const HtmlTab = api.models.HtmlTab;
+        if (HtmlTab && typeof api.registerItemTab === 'function') {
+            const itemTab = new HtmlTab({
+                title: () => game.i18n.localize('GLINVSLOTS.itemConfig'),
+                tabId: 'gluniverse-active-inventory',
+                iconClass: 'fas fa-box-open',
+                html: () => `<div class="glinv-scope glinv-item-root" data-tidy-render-scheme="handlebars"></div>`,
+                renderScheme: 'handlebars',
+                enabled: () => this._anyFeatureEnabled(),
+                onRender: (params) => this._onItemRender(params),
+            });
+            try {
+                api.registerItemTab(itemTab, { layout: 'all', autoHeight: true, types: PHYSICAL_ITEM_TYPES });
+            } catch (err) {
+                console.error(`${MODULE_ID} | Failed to register item tab:`, err);
+            }
+        } else {
+            // Fallback for older Tidy: inject into the item sheet body.
+            const itemContent = () => new HtmlContent({
+                html: () => `<div class="glinv-scope glinv-item-root" data-tidy-render-scheme="handlebars"></div>`,
+                renderScheme: 'handlebars',
+                enabled: () => this._anyFeatureEnabled(),
+                onRender: (params) => this._onItemRender(params),
+            });
+            try {
+                api.registerItemContent(itemContent(), { layout: 'all' });
+            } catch (err) {
+                console.error(`${MODULE_ID} | Failed to register item content:`, err);
+            }
+        }
+
+        // — Header readout chip: a compact used/max slots badge in the title bar,
+        //   anchored to the (always-present) name container used by Tidy's own
+        //   official example. Mirrors the clocks-and-tracker compact readout.
+        const partName = api.constants?.SHEET_PARTS?.NAME_CONTAINER || 'name-container';
+        const headerChip = () => new HtmlContent({
+            html: () => `<span class="glinv-scope glinv-header-chip-root" data-tidy-render-scheme="handlebars"></span>`,
+            renderScheme: 'handlebars',
+            injectParams: { selector: `[data-tidy-sheet-part="${partName}"]`, position: 'beforebegin' },
+            enabled: () => getSetting('enableSlotSystem'),
+            onRender: (params) => this._onHeaderChipRender(params),
         });
+        try {
+            api.registerCharacterContent(headerChip(), { layout: 'all' });
+            api.registerNpcContent(headerChip(), { layout: 'all' });
+        } catch (err) {
+            console.error(`${MODULE_ID} | Failed to register header chip:`, err);
+        }
 
-        Hooks.on('renderItemSheet', (app, html, data) => {
-            if (!this._anyFeatureEnabled()) return;
-            const item = app.document || app.item || app.object;
-            if (!item) return;
-            this._injectItemTab(unwrapElement(html), item);
-        });
+        // — Native quick-action buttons in the inventory item-row summary.
+        this._registerItemSummaryCommands();
+    }
 
-        // Application V2 render handler. On Foundry v14 ApplicationV2 fires the
-        // `renderApplicationV2` hook; on v13 the generic `renderApplication` hook
-        // is also dispatched. We register the same handler on both names so the
-        // module works across versions, and guard against double-processing.
-        const onAppV2Render = (app, _result, _options) => {
-            const el = unwrapElement(app?.element);
-            if (!el) return;
+    /** Map<actorId, number> — last seen slotsUsed, for the ±N float animation. */
+    static _slotCache = new Map();
 
-            // Tidy 5e actor sheets (Quadrone / AppV2).
-            if (app.constructor?.name?.includes('Tidy5e')) {
-                this._processActorSheet(app, el);
+    /**
+     * Register tactile quick-action buttons that Tidy renders inside the item
+     * summary expansion (and info card) on inventory rows. Feature-detected so
+     * older Tidy builds without the itemSummary API simply skip these.
+     */
+    static _registerItemSummaryCommands() {
+        const api = this._api;
+        const register = api?.config?.itemSummary?.registerCommands;
+        if (typeof register !== 'function') {
+            console.log(`${MODULE_ID} | itemSummary.registerCommands unavailable — skipping row quick-actions`);
+            return;
+        }
+
+        const L = (k) => game.i18n.localize(k);
+        const physical = (item) => { try { return SlotCalculator._isPhysicalItem(item); } catch { return false; } };
+
+        const commands = [
+            // Ammunition dice
+            {
+                label: L('GLINVSLOTS.ammo.rollAmmo'),
+                iconClass: 'fas fa-dice',
+                enabled: ({ item }) => getSetting('enableAmmunitionDice')
+                    && AmmoDiceCalculator.usesAmmoDice(item) && !AmmoDiceCalculator.isEmpty(item),
+                execute: async ({ item }) => { await AmmoDiceCalculator.rollAmmoDie(item, true); },
+            },
+            {
+                label: L('GLINVSLOTS.ammo.replenishFull'),
+                iconClass: 'fas fa-arrows-rotate',
+                enabled: ({ item }) => getSetting('enableAmmunitionDice')
+                    && AmmoDiceCalculator.usesAmmoDice(item)
+                    && AmmoDiceCalculator.getCurrentDie(item) < AmmoDiceCalculator.getMaxDie(item),
+                execute: async ({ item }) => {
+                    const r = await AmmoDiceCalculator.fullReplenish(item);
+                    if (!r.alreadyFull) ui.notifications.info(`${item.name}: ${L('GLINVSLOTS.ammo.replenishFull')} (${r.cost} gp)`);
+                },
+            },
+            // Dice pool
+            {
+                label: L('GLINVSLOTS.pool.rollPool'),
+                iconClass: 'fas fa-cubes',
+                enabled: ({ item }) => getSetting('enableDicePool')
+                    && DicePoolCalculator.usesDicePool(item) && !DicePoolCalculator.isDepleted(item),
+                execute: async ({ item }) => {
+                    const r = await DicePoolCalculator.rollPool(item, true);
+                    if (r.depleted) ui.notifications.warn(`${item.name}: ${L('GLINVSLOTS.pool.itemDepleted')}`);
+                },
+            },
+            {
+                label: L('GLINVSLOTS.pool.refill'),
+                iconClass: 'fas fa-arrows-rotate',
+                enabled: ({ item }) => getSetting('enableDicePool')
+                    && DicePoolCalculator.usesDicePool(item)
+                    && DicePoolCalculator.getPoolSize(item) < DicePoolCalculator.getMaxPoolSize(item),
+                execute: async ({ item }) => { await DicePoolCalculator.refillPool(item); },
+            },
+            // Wear & tear
+            {
+                label: L('GLINVSLOTS.notch.addNotch'),
+                iconClass: 'fas fa-hammer',
+                enabled: ({ item }) => getSetting('enableWearAndTear') && physical(item),
+                execute: async ({ item }) => {
+                    const r = await NotchCalculator.addNotch(item);
+                    await NotchCalculator.announceNotch(item, item.parent, L('GLINVSLOTS.notch.addNotch'));
+                    if (r.shattered) ui.notifications.warn(`${item.name} ${L('GLINVSLOTS.notch.shattered')}!`);
+                },
+            },
+            {
+                label: L('GLINVSLOTS.notch.removeNotch'),
+                iconClass: 'fas fa-wrench',
+                enabled: ({ item }) => getSetting('enableWearAndTear')
+                    && NotchCalculator.getEffectiveNotches(item) > 0,
+                execute: async ({ item }) => { await NotchCalculator.removeNotch(item, 1); },
+            },
+            // Quickdraw toggle
+            {
+                label: L('GLINVSLOTS.quickdraw'),
+                iconClass: 'fas fa-bolt',
+                enabled: ({ item }) => getSetting('enableSlotSystem') && getSetting('enableQuickdraw') && physical(item),
+                execute: async ({ item }) => {
+                    const isQd = item.getFlag(FLAG_SCOPE, 'quickdraw') || false;
+                    if (!isQd) {
+                        const count = SlotCalculator.getQuickdrawCount(item.parent);
+                        const max = SlotCalculator.getMaxQuickdrawSlots();
+                        if (count >= max) { ui.notifications.warn(game.i18n.format('GLINVSLOTS.quickdrawFull', { max })); return; }
+                    }
+                    await item.setFlag(FLAG_SCOPE, 'quickdraw', !isQd);
+                },
+            },
+        ];
+
+        try {
+            register.call(api.config.itemSummary, commands);
+        } catch (err) {
+            console.error(`${MODULE_ID} | Failed to register item-summary commands:`, err);
+        }
+    }
+
+    static _onHeaderChipRender(params) {
+        const actor = params.app?.document;
+        const root = params.element?.classList?.contains('glinv-header-chip-root')
+            ? params.element
+            : params.element?.querySelector?.('.glinv-header-chip-root');
+        if (!actor || actor.documentName !== 'Actor' || !root) return;
+        if (actor.type === 'npc' && !getSetting('enableForNPCs')) { root.remove(); return; }
+        if (actor.type !== 'character' && actor.type !== 'npc') { root.remove(); return; }
+
+        try {
+            const inv = SlotCalculator.calculateInventory(actor);
+            const { slotsUsed, maxSlots, encumbranceState } = inv;
+            const stateClass = encumbranceState === 'overburdened' ? 'glinv-overburdened'
+                : encumbranceState === 'encumbered' ? 'glinv-encumbered'
+                : slotsUsed > maxSlots * 0.75 ? 'glinv-heavy' : '';
+            root.innerHTML = `<span class="glinv-header-chip ${stateClass}" title="${this._esc(L_inv(slotsUsed, maxSlots))}">
+                <i class="fas fa-box"></i>
+                <span class="glinv-hc-used">${slotsUsed}</span><span class="glinv-hc-sep">/</span><span class="glinv-hc-max">${maxSlots}</span>
+            </span>`;
+        } catch (err) {
+            console.error(`${MODULE_ID} | Error rendering header chip:`, err);
+        }
+
+        function L_inv(u, m) {
+            return `${game.i18n.localize('GLINVSLOTS.inventorySlots')}: ${u}/${m}`;
+        }
+    }
+
+    /** Escape a string for safe interpolation into innerHTML. */
+    static _esc(str) {
+        return String(str ?? '').replace(/[&<>"']/g, (c) => (
+            { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+        ));
+    }
+
+    // ─── Render Callbacks ────────────────────────────────────────────
+
+    static _onActorRender(params) {
+        const actor = params.app?.document;
+        const root = params.element?.classList?.contains('glinv-actor-root')
+            ? params.element
+            : params.element?.querySelector?.('.glinv-actor-root');
+        const sheetEl = unwrapElement(params.app?.element);
+        if (!actor || actor.documentName !== 'Actor' || !root || !sheetEl) return;
+        if (actor.type === 'npc' && !getSetting('enableForNPCs')) { root.remove(); return; }
+        if (actor.type !== 'character' && actor.type !== 'npc') { root.remove(); return; }
+
+        try {
+            // Theme: always the dark HUD, but tag the host theme for fine-tuning.
+            root.classList.toggle('glinv-host-dark', sheetEl.classList.contains('theme-dark'));
+
+            if (getSetting('enableSlotSystem')) {
+                const inv = SlotCalculator.calculateInventory(actor);
+                const sig = this._slotSignature(actor, inv);
+                const unchanged = this._actorSig.get(actor.id) === sig && root.querySelector('.glinv-slot-panel');
+
+                // Re-render only when the slot state actually changed (or the node
+                // was re-created empty) — not on every Svelte change cycle.
+                if (!unchanged) {
+                    const prevUsed = this._slotCache.get(actor.id);
+                    root.innerHTML = this._buildSlotPanelHtml(actor, inv);
+
+                    const btn = root.querySelector('[data-glinv-settings]');
+                    if (btn) btn.addEventListener('click', (ev) => {
+                        ev.preventDefault();
+                        ev.stopPropagation();
+                        this._openSettingsDialog(actor);
+                    });
+
+                    // Slot-machine reel + trend triangle, only on a real change.
+                    if (prevUsed !== undefined && prevUsed !== inv.slotsUsed) {
+                        this._animateReel(root.querySelector('.glinv-count-used'), prevUsed, inv.slotsUsed);
+                        this._emitTrend(root.querySelector('.glinv-slot-count'), inv.slotsUsed - prevUsed);
+                    }
+                    this._slotCache.set(actor.id, inv.slotsUsed);
+                    this._actorSig.set(actor.id, sig);
+                }
+            } else {
+                root.innerHTML = '';
             }
 
-            // Any item sheet (Tidy or core) — annotate the slot/notch config panel.
-            if (this._anyFeatureEnabled()) {
-                const doc = app.document || app.item || app.object;
-                if (doc?.documentName === 'Item') this._injectItemTab(el, doc);
-            }
-        };
+            // Annotate inventory rows across the whole sheet (idempotent).
+            this._annotateBulkOnRows(sheetEl, actor);
+        } catch (err) {
+            console.error(`${MODULE_ID} | Error rendering actor content:`, err);
+        }
+    }
 
-        Hooks.on('renderApplicationV2', onAppV2Render);
-        Hooks.on('renderApplication', onAppV2Render);
+    /** Stable signature of the slot state — used to skip redundant re-renders. */
+    static _slotSignature(actor, inv) {
+        let qd = '';
+        if (getSetting('enableQuickdraw')) {
+            qd = (actor.items?.contents ?? [])
+                .filter((i) => { try { return SlotCalculator._isPhysicalItem(i) && SlotCalculator.isQuickdraw(i); } catch { return false; } })
+                .map((i) => i.id).join(',');
+        }
+        return [inv.slotsUsed, inv.maxSlots, inv.overburdenedMax, inv.encumbranceState,
+            inv.quickdrawCount, inv.maxQuickdraw, qd].join('|');
+    }
+
+    /** Map<actorId, string> — last rendered slot signature. */
+    static _actorSig = new Map();
+
+    /**
+     * Slot-machine digit reel: roll each digit from its old value to the new one.
+     * Element is rebuilt fresh each render, so we seed at the old digit then
+     * transition to the new digit on the next frame (CSS handles the roll).
+     */
+    static _animateReel(el, oldVal, newVal) {
+        if (!el) return;
+        const newStr = String(newVal);
+        const oldStr = String(oldVal).padStart(newStr.length, '0');
+        el.textContent = '';
+        el.classList.add('glinv-reel-num');
+        for (let i = 0; i < newStr.length; i++) {
+            const oldD = parseInt(oldStr[i] ?? '0', 10) || 0;
+            const newD = parseInt(newStr[i], 10) || 0;
+            const reel = document.createElement('span');
+            reel.className = 'glinv-reel';
+            const strip = document.createElement('span');
+            strip.className = 'glinv-reel-strip';
+            for (let d = 0; d <= 9; d++) {
+                const digit = document.createElement('span');
+                digit.className = 'glinv-reel-digit';
+                digit.textContent = String(d);
+                strip.appendChild(digit);
+            }
+            strip.style.transform = `translateY(-${oldD}em)`;
+            reel.appendChild(strip);
+            el.appendChild(reel);
+            requestAnimationFrame(() => requestAnimationFrame(() => {
+                strip.style.transform = `translateY(-${newD}em)`;
+            }));
+        }
+    }
+
+    /** Green ▼ (lighter) / red ▲ (heavier) trend triangle, à la clocks-and-tracker. */
+    static _emitTrend(container, delta) {
+        if (!container || !delta) return;
+        const t = document.createElement('span');
+        t.className = `glinv-trend ${delta > 0 ? 'glinv-trend-up' : 'glinv-trend-down'}`;
+        t.textContent = delta > 0 ? '▲' : '▼';
+        container.appendChild(t);
+        setTimeout(() => t.remove(), 1400);
+    }
+
+    static _onItemRender(params) {
+        const item = params.app?.document;
+        // Tabs hand us `tabContentsElement`; content blocks hand us `element`.
+        const host = params.tabContentsElement || params.element;
+        const root = host?.classList?.contains('glinv-item-root')
+            ? host
+            : host?.querySelector?.('.glinv-item-root') || host;
+        const sheetEl = unwrapElement(params.app?.element);
+        if (!item || item.documentName !== 'Item' || !root) return;
+
+        const nonPhysical = ['spell', 'feat', 'class', 'subclass', 'background', 'race', 'facility'];
+        if (nonPhysical.includes(item.type)) { root.innerHTML = ''; return; }
+
+        try {
+            let html = '';
+            if (getSetting('enableSlotSystem')) html += this._buildBulkConfigHtml(item);
+            if (getSetting('enableWearAndTear')) html += this._buildNotchConfigHtml(item);
+            if (getSetting('enableAmmunitionDice')) html += this._buildAmmoConfigHtml(item);
+            if (getSetting('enableDicePool')) html += this._buildDicePoolConfigHtml(item);
+            root.innerHTML = html;
+            // Fresh node each render → binding here cannot leak.
+            this._bindAllTabEvents(root, item, sheetEl);
+        } catch (err) {
+            console.error(`${MODULE_ID} | Error rendering item content:`, err);
+        }
     }
 
     /** True when at least one of the module's features is enabled. */
@@ -79,133 +402,13 @@ export class TidyIntegration {
             || getSetting('enableAmmunitionDice') || getSetting('enableDicePool');
     }
 
-    /**
-     * MutationObserver: detect Tidy5e sheet content changes (Svelte re-renders).
-     * For the floating panel we only need to re-annotate bulk on rows and
-     * update the panel data. We no longer inject the grid into the sheet DOM.
-     */
-    static _setupDomObserver() {
-        const observer = new MutationObserver((mutations) => {
-            if (!getSetting('enableSlotSystem') && !getSetting('enableWearAndTear') && !getSetting('enableAmmunitionDice') && !getSetting('enableDicePool')) return;
-
-            const sheetsToProcess = new Set();
-
-            for (const mutation of mutations) {
-                // Detect new content being added (Svelte render)
-                for (const node of mutation.addedNodes) {
-                    if (node.nodeType !== Node.ELEMENT_NODE) continue;
-
-                    const sheet = node.closest?.('.tidy5e-sheet') ||
-                        (node.classList?.contains('tidy5e-sheet') ? node : null);
-                    if (!sheet) continue;
-
-                    // Skip our own mutations
-                    if (node.classList?.contains('glinv-item-slots') ||
-                        node.classList?.contains('glinv-quickdraw-row')) continue;
-
-                    sheetsToProcess.add(sheet);
-                }
-            }
-
-            for (const sheet of sheetsToProcess) {
-                clearTimeout(sheet._glinvTimer);
-                sheet._glinvTimer = setTimeout(() => {
-                    this._processSheetElement(sheet);
-                }, 200);
-            }
-        });
-
-        if (document.body) {
-            observer.observe(document.body, { childList: true, subtree: true });
-        }
-        this._observer = observer;
-
-        // Scan for already-open sheets (multiple passes for Svelte timing)
-        for (const delay of [500, 1500, 3000]) {
-            setTimeout(() => this._scanOpenSheets(), delay);
-        }
-    }
-
-    static _scanOpenSheets() {
-        if (!getSetting('enableSlotSystem')) return;
-        const apps = foundry.applications?.instances
-            ? [...foundry.applications.instances.values()]
-            : Object.values(ui.windows || {});
-
-        for (const app of apps) {
-            const name = app.constructor?.name || '';
-            if (!name.includes('Tidy5e')) continue;
-
-            const doc = app.document || app.actor;
-            if (!doc || doc.documentName !== 'Actor') continue;
-
-            this._processActorSheet(app, app.element);
-        }
-    }
-
-    static _processSheetElement(sheetEl) {
-        const slotsEnabled = getSetting('enableSlotSystem');
-        const wearEnabled = getSetting('enableWearAndTear');
-        const ammoEnabled = getSetting('enableAmmunitionDice');
-        const poolEnabled = getSetting('enableDicePool');
-        if (!slotsEnabled && !wearEnabled && !ammoEnabled && !poolEnabled) return;
-        if (!sheetEl) return;
-
-        const apps = foundry.applications?.instances
-            ? [...foundry.applications.instances.values()]
-            : Object.values(ui.windows || {});
-
-        const app = apps.find(a => {
-            const el = unwrapElement(a.element);
-            return el === sheetEl;
-        });
-        if (!app) return;
-
-        const actor = app.document || app.actor;
-        if (!actor) return;
-
-        if (actor.documentName === 'Actor' && (slotsEnabled || wearEnabled || ammoEnabled || poolEnabled)) {
-            if (actor.type === 'npc' && !getSetting('enableForNPCs')) return;
-            if (actor.type !== 'character' && actor.type !== 'npc') return;
-            if (slotsEnabled) this._updatePanel(actor, sheetEl);
-            this._annotateBulkOnRows(sheetEl, actor);
-        }
-
-        if (actor.documentName === 'Item') {
-            this._injectItemTab(sheetEl, actor);
-        }
-    }
-
-    static _processActorSheet(app, element) {
-        if (!getSetting('enableSlotSystem') && !getSetting('enableWearAndTear') && !getSetting('enableAmmunitionDice') && !getSetting('enableDicePool')) return;
-
-        const actor = app.document || app.actor;
-        if (!actor) return;
-
-        if (actor.documentName === 'Actor') {
-            if (actor.type === 'npc' && !getSetting('enableForNPCs')) return;
-            if (actor.type !== 'character' && actor.type !== 'npc') return;
-
-            const el = unwrapElement(element);
-            if (!el) return;
-
-            try {
-                if (getSetting('enableSlotSystem')) this._updatePanel(actor, el);
-                this._annotateBulkOnRows(el, actor);
-            } catch (err) {
-                console.error(`${MODULE_ID} | Error processing actor sheet:`, err);
-            }
-        }
-    }
-
-    // ─── Floating Panel ──────────────────────────────────────────────
+    // ─── Slot Panel HTML ─────────────────────────────────────────────
 
     /**
-     * Create or update the floating slot panel for an actor.
-     * The panel lives in document.body, completely outside Svelte's control.
+     * Build the inline slot panel markup for an actor. Pure string builder —
+     * the caller injects it into the registered actor content root.
      */
-    static _updatePanel(actor, sheetEl) {
-        const inventory = SlotCalculator.calculateInventory(actor);
+    static _buildSlotPanelHtml(actor, inventory = SlotCalculator.calculateInventory(actor)) {
         const breakdown = SlotCalculator.getSlotBreakdown(actor);
         const { maxSlots, slotsUsed, overburdenedMax, encumbranceState, quickdrawCount, maxQuickdraw } = inventory;
 
@@ -298,125 +501,41 @@ export class TidyIntegration {
                 ${boxesHtml}
             </div>`;
 
-        // Get or create the panel element
-        let panel = this._panels.get(actor.id);
-        if (!panel) {
-            panel = document.createElement('div');
-            panel.classList.add('glinv-floating-panel');
-            panel.dataset.actorId = actor.id;
-            document.body.appendChild(panel);
-            this._panels.set(actor.id, panel);
-        }
-
-        // Detect theme from sheet element
-        const isQuadrone = sheetEl.classList.contains('quadrone');
-        const isDark = sheetEl.classList.contains('theme-dark') || sheetEl.classList.contains('tidy5e-dark');
-        panel.classList.toggle('glinv-panel-quadrone', isQuadrone);
-        panel.classList.toggle('glinv-panel-dark', isDark);
-
-        // Copy --t5e-* CSS variables from sheet to panel for theme matching
-        const sheetStyles = getComputedStyle(sheetEl);
-        const t5eVars = [
-            '--t5e-background',
-            '--t5e-faint-color',
-            '--t5e-primary-color',
-            '--t5e-secondary-color',
-            '--t5e-primary-accent-color',
-            '--t5e-header-background',
-            '--t5e-separator-color',
-            '--t5e-inspiration-inspired-text-shadow-color',
-            '--t5e-body-font-family',
-        ];
-        for (const v of t5eVars) {
-            const val = sheetStyles.getPropertyValue(v);
-            if (val) panel.style.setProperty(v, val);
-        }
-
-        // Update class states
-        panel.classList.remove('glinv-overburdened', 'glinv-encumbered', 'glinv-heavy');
-        if (stateClass) panel.classList.add(stateClass);
-
-        panel.title = tooltip;
-        panel.innerHTML = innerHtml;
-
-        // Store reference to the sheet element for positioning
-        panel._sheetEl = sheetEl;
-        panel.style.display = '';
-
-        // Bind settings button
-        const btn = panel.querySelector('[data-glinv-settings]');
-        if (btn) {
-            btn.addEventListener('click', (ev) => {
-                ev.preventDefault();
-                ev.stopPropagation();
-                this._openSettingsDialog(actor);
-            });
-        }
-
-        // Position immediately
-        this._positionPanel(panel);
+        return `
+            <div class="glinv-slot-panel glinv-glass ${stateClass}" title="${this._esc(tooltip)}">
+                ${innerHtml}
+                ${this._buildQuickdrawBeltHtml(actor)}
+            </div>`;
     }
 
     /**
-     * Position a floating panel at the bottom of its associated sheet.
+     * Build the quickdraw "belt" — a tray of gold chips for the actor's
+     * quickdraw-flagged items. Read-only display (drag-to-reorder is deferred,
+     * as it needs Foundry's drag/drop APIs verified in-app).
      */
-    static _positionPanel(panel) {
-        const sheetEl = panel._sheetEl;
-        if (!sheetEl || !sheetEl.isConnected) {
-            panel.style.display = 'none';
-            return;
-        }
+    static _buildQuickdrawBeltHtml(actor) {
+        if (!getSetting('enableQuickdraw')) return '';
+        const items = (actor.items?.contents ?? []).filter((i) => {
+            try { return SlotCalculator._isPhysicalItem(i) && SlotCalculator.isQuickdraw(i); }
+            catch { return false; }
+        });
+        if (items.length === 0) return '';
 
-        const rect = sheetEl.getBoundingClientRect();
-        const panelWidth = rect.width;
+        const max = SlotCalculator.getMaxQuickdrawSlots();
+        const chips = items.map((i) => `
+            <span class="glinv-qd-chip" data-item-id="${this._esc(i.id)}" title="${this._esc(i.name)}">
+                ${i.img ? `<img src="${this._esc(i.img)}" alt="">` : '<i class="fas fa-bolt"></i>'}
+                <span class="glinv-qd-chip-name">${this._esc(i.name)}</span>
+            </span>`).join('');
 
-        panel.style.position = 'fixed';
-        panel.style.left = `${rect.left}px`;
-        panel.style.top = `${rect.bottom}px`;
-        panel.style.width = `${panelWidth}px`;
-        panel.style.zIndex = String((parseInt(sheetEl.style.zIndex) || 100) - 1);
-    }
-
-    /**
-     * Continuous position tracking loop — keeps panels anchored to their sheets.
-     * Also removes panels for sheets that have been closed.
-     */
-    static _startPositionLoop() {
-        const tick = () => {
-            // Actor sheet panels (bottom)
-            for (const [actorId, panel] of this._panels) {
-                const sheetEl = panel._sheetEl;
-                if (!sheetEl || !sheetEl.isConnected) {
-                    panel.remove();
-                    this._panels.delete(actorId);
-                    continue;
-                }
-                this._positionPanel(panel);
-            }
-            // Item sheet panels (right side)
-            for (const [itemId, panel] of this._itemPanels) {
-                const sheetEl = panel._sheetEl;
-                if (!sheetEl || !sheetEl.isConnected) {
-                    panel.remove();
-                    this._itemPanels.delete(itemId);
-                    continue;
-                }
-                this._positionItemPanel(panel);
-            }
-            this._rafHandle = requestAnimationFrame(tick);
-        };
-        this._rafHandle = requestAnimationFrame(tick);
-    }
-
-    /**
-     * Remove a panel for a specific actor (e.g., when settings change).
-     */
-    static _removePanel(actorId) {
-        const panel = this._panels.get(actorId);
-        if (panel) {
-            panel.remove();
-            this._panels.delete(actorId);
-        }
+        return `
+            <div class="glinv-quickdraw-belt">
+                <span class="glinv-qd-belt-label">
+                    <i class="fas fa-bolt"></i> ${game.i18n.localize('GLINVSLOTS.quickdraw')}
+                    <span class="glinv-qd-belt-count">${items.length}/${max}</span>
+                </span>
+                <div class="glinv-qd-chips">${chips}</div>
+            </div>`;
     }
 
     // ─── Settings Dialog (GM Override) ───────────────────────────────
@@ -437,6 +556,7 @@ export class TidyIntegration {
         ].map(s => `<option value="${s.value}" ${s.value === currentSizeOverride ? 'selected' : ''}>${s.label}</option>`).join('');
 
         const content = `
+            <div class="glinv-scope">
             <form class="glinv-override-form">
                 <p style="margin-top:0;font-size:0.85rem;opacity:0.8;">
                     ${game.i18n.localize('GLINVSLOTS.dialog.calculatedSlots')}: <strong>${breakdown.total}</strong>
@@ -453,7 +573,8 @@ export class TidyIntegration {
                 <p style="font-size:0.75rem;opacity:0.6;margin-bottom:0;">
                     ${game.i18n.localize('GLINVSLOTS.dialog.overrideHint')}
                 </p>
-            </form>`;
+            </form>
+            </div>`;
 
         const parseForm = (root) => ({
             sizeOverride: root.querySelector('[name="sizeOverride"]')?.value || '',
@@ -650,98 +771,16 @@ export class TidyIntegration {
         </span>`;
     }
 
-    // ─── Item Config Floating Panel ─────────────────────────────────
-
     /**
-     * Create or update a compact floating panel attached to the right side
-     * of the item sheet. Lives in document.body to survive Svelte re-renders.
+     * Refresh the item config panel after a flag/item write.
+     *
+     * With the v3 registration architecture this is a no-op: writing a flag or
+     * updating the item is an embedded-document change, which makes Tidy re-run
+     * our `renderScheme: 'handlebars'` content and call `_onItemRender` again
+     * with fresh nodes. Event handlers therefore retain their many call sites
+     * without re-binding to a stale, ever-growing panel (the old leak).
      */
-    static _injectItemTab(element, item) {
-        if (!element) return;
-
-        const nonPhysical = ['spell', 'feat', 'class', 'subclass', 'background', 'race', 'facility'];
-        if (nonPhysical.includes(item.type)) return;
-
-        let panel = this._itemPanels.get(item.id);
-        if (!panel) {
-            panel = document.createElement('div');
-            panel.classList.add('glinv-item-panel');
-            panel.dataset.itemId = item.id;
-            document.body.appendChild(panel);
-            this._itemPanels.set(item.id, panel);
-        }
-
-        // Copy theme from sheet
-        const isDark = element.classList.contains('theme-dark') || element.classList.contains('tidy5e-dark');
-        const isQuadrone = element.classList.contains('quadrone');
-        panel.classList.toggle('glinv-panel-dark', isDark);
-        panel.classList.toggle('glinv-panel-quadrone', isQuadrone);
-
-        const sheetStyles = getComputedStyle(element);
-        const t5eVars = [
-            '--t5e-background', '--t5e-faint-color', '--t5e-primary-color',
-            '--t5e-secondary-color', '--t5e-primary-accent-color',
-            '--t5e-header-background', '--t5e-separator-color', '--t5e-body-font-family',
-        ];
-        for (const v of t5eVars) {
-            const val = sheetStyles.getPropertyValue(v);
-            if (val) panel.style.setProperty(v, val);
-        }
-
-        // Build content
-        let html = '<div class="glinv-item-panel-inner">';
-        if (getSetting('enableSlotSystem')) html += this._buildBulkConfigHtml(item);
-        if (getSetting('enableWearAndTear')) html += this._buildNotchConfigHtml(item);
-        if (getSetting('enableAmmunitionDice')) html += this._buildAmmoConfigHtml(item);
-        if (getSetting('enableDicePool')) html += this._buildDicePoolConfigHtml(item);
-        html += '</div>';
-
-        panel.innerHTML = html;
-        panel._sheetEl = element;
-        panel.style.display = '';
-
-        // Bind events
-        this._bindAllTabEvents(panel, item, element);
-
-        // Position immediately
-        this._positionItemPanel(panel);
-    }
-
-    /**
-     * Position an item panel to the right of its item sheet.
-     */
-    static _positionItemPanel(panel) {
-        const sheetEl = panel._sheetEl;
-        if (!sheetEl || !sheetEl.isConnected) {
-            panel.style.display = 'none';
-            return;
-        }
-
-        const rect = sheetEl.getBoundingClientRect();
-        panel.style.position = 'fixed';
-        panel.style.left = `${rect.right + 4}px`;
-        panel.style.top = `${rect.top}px`;
-        panel.style.maxHeight = `${rect.height}px`;
-        panel.style.zIndex = String((parseInt(sheetEl.style.zIndex) || 100) - 1);
-    }
-
-    /**
-     * Rebuild floating item panel content (for real-time updates).
-     */
-    static _refreshItemTab(element, item) {
-        const panel = this._itemPanels.get(item.id);
-        if (!panel) return;
-
-        let html = '<div class="glinv-item-panel-inner">';
-        if (getSetting('enableSlotSystem')) html += this._buildBulkConfigHtml(item);
-        if (getSetting('enableWearAndTear')) html += this._buildNotchConfigHtml(item);
-        if (getSetting('enableAmmunitionDice')) html += this._buildAmmoConfigHtml(item);
-        if (getSetting('enableDicePool')) html += this._buildDicePoolConfigHtml(item);
-        html += '</div>';
-
-        panel.innerHTML = html;
-        this._bindAllTabEvents(panel, item, element);
-    }
+    static _refreshItemTab(_element, _item) { /* reactive — handled by Tidy re-render */ }
 
     // ─── Bulk Config HTML ───────────────────────────────────────────
 
@@ -1027,60 +1066,35 @@ export class TidyIntegration {
                 </div>`;
         }
 
+        const L = (k) => game.i18n.localize(`GLINVSLOTS.${k}`);
+        const faceText = isEmpty ? '∅' : isLastShot ? '1' : `d${currentDie}`;
+        // Depletion track: one pip per chain step at or below the max die.
+        const track = AMMO_DIE_CHAIN.filter((d) => d <= maxDie)
+            .map((d) => `<span class="glinv-step ${currentDie >= d ? 'on' : ''}" title="d${d}"></span>`).join('');
+
         return `
-            <div class="glinv-item-config glinv-ammo-config" data-glinv-section="ammo">
-                <h4 class="glinv-config-header">
-                    <i class="fas fa-bullseye"></i> ${game.i18n.localize('GLINVSLOTS.ammo.config')}
-                </h4>
-                ${isEmpty ? `<div class="glinv-shattered-banner glinv-ammo-empty-banner">
-                    <i class="fas fa-times-circle"></i> ${game.i18n.localize('GLINVSLOTS.ammo.empty')}
-                </div>` : ''}
-                <div class="glinv-item-fields">
-                    <div class="glinv-ammo-status">
-                        <div class="glinv-ammo-die-display ${dieVisualClass}">
-                            <i class="fas fa-dice-d20"></i>
-                            <span class="glinv-ammo-die-label">${dieLabel}</span>
-                        </div>
-                        <span class="glinv-ammo-max">/ d${maxDie}</span>
+            <div class="glinv-item-config glinv-card glinv-ammo-config ${dieVisualClass}" data-glinv-section="ammo">
+                <div class="glinv-card-head">
+                    <i class="fas fa-bullseye"></i><span class="glinv-card-title">${L('ammo.config')}</span>
+                    <span class="glinv-card-tag">${faceText}</span>
+                </div>
+                <div class="glinv-die-hero">
+                    <div class="glinv-die"><span class="glinv-die-face">${faceText}</span></div>
+                    <div class="glinv-die-meta">
+                        <div class="glinv-die-track">${track}</div>
+                        <div class="glinv-die-sub">${L('ammo.maxDie')} d${maxDie}${replenishCost > 0 ? ` · ${replenishCost} gp` : ''}</div>
                     </div>
-                    <div class="glinv-ammo-controls">
-                        <button type="button" class="glinv-ammo-roll" ${isEmpty ? 'disabled' : ''}
-                                title="${game.i18n.localize('GLINVSLOTS.ammo.rollAmmo')}">
-                            <i class="fas fa-dice"></i> ${game.i18n.localize('GLINVSLOTS.ammo.rollAmmo')}
-                        </button>
-                        <button type="button" class="glinv-ammo-replenish" ${currentDie >= maxDie ? 'disabled' : ''}
-                                title="${game.i18n.localize('GLINVSLOTS.ammo.replenish')}">
-                            <i class="fas fa-plus"></i> ${game.i18n.localize('GLINVSLOTS.ammo.replenish')}
-                        </button>
-                    </div>
-                    <div class="glinv-ammo-controls">
-                        <button type="button" class="glinv-ammo-replenish-full" ${currentDie >= maxDie ? 'disabled' : ''}
-                                title="${game.i18n.localize('GLINVSLOTS.ammo.replenishFull')}">
-                            <i class="fas fa-arrows-rotate"></i> ${game.i18n.localize('GLINVSLOTS.ammo.replenishFull')}
-                        </button>
-                        <button type="button" class="glinv-ammo-reset"
-                                title="${game.i18n.localize('GLINVSLOTS.ammo.reset')}">
-                            <i class="fas fa-undo"></i> ${game.i18n.localize('GLINVSLOTS.ammo.reset')}
-                        </button>
-                    </div>
-                    ${replenishCost > 0 ? `<div class="glinv-repair-info">
-                        <small>${game.i18n.localize('GLINVSLOTS.ammo.replenishCost')}: ${replenishCost} gp (${game.i18n.localize('GLINVSLOTS.ammo.replenishFull')})</small>
-                    </div>` : ''}
-                    <div class="glinv-item-field">
-                        <label>${game.i18n.localize('GLINVSLOTS.ammo.maxDie')}</label>
-                        <select class="glinv-ammo-max-die">${dieOptions}</select>
-                    </div>
-                    ${game.user.isGM ? `<div class="glinv-item-field">
-                        <label>${game.i18n.localize('GLINVSLOTS.ammo.currentDie')} (GM)</label>
-                        <select class="glinv-ammo-current-die">${currentDieOptions}</select>
-                    </div>` : ''}
-                    <div class="glinv-item-field glinv-checkbox-field">
-                        <label>
-                            <input type="checkbox" class="glinv-ammo-individual-toggle" ${trackIndividual ? 'checked' : ''}>
-                            <i class="fas fa-hashtag"></i> ${game.i18n.localize('GLINVSLOTS.ammo.trackIndividual')}
-                        </label>
-                        <small class="glinv-field-hint">${game.i18n.localize('GLINVSLOTS.ammo.trackIndividualHint')}</small>
-                    </div>
+                </div>
+                <div class="glinv-btn-row">
+                    <button type="button" class="glinv-icon-btn glinv-ammo-roll" ${isEmpty ? 'disabled' : ''} title="${L('ammo.rollAmmo')}"><i class="fas fa-dice"></i></button>
+                    <button type="button" class="glinv-icon-btn glinv-ammo-replenish" ${currentDie >= maxDie ? 'disabled' : ''} title="${L('ammo.replenish')}"><i class="fas fa-plus"></i></button>
+                    <button type="button" class="glinv-icon-btn glinv-ammo-replenish-full" ${currentDie >= maxDie ? 'disabled' : ''} title="${L('ammo.replenishFull')}"><i class="fas fa-arrows-rotate"></i></button>
+                    <button type="button" class="glinv-icon-btn glinv-ammo-reset" title="${L('ammo.reset')}"><i class="fas fa-undo"></i></button>
+                </div>
+                <div class="glinv-mini-fields">
+                    <label class="glinv-mini-field"><span>${L('ammo.maxDie')}</span><select class="glinv-ammo-max-die">${dieOptions}</select></label>
+                    ${game.user.isGM ? `<label class="glinv-mini-field"><span>${L('ammo.currentDie')}</span><select class="glinv-ammo-current-die">${currentDieOptions}</select></label>` : ''}
+                    <label class="glinv-mini-check" title="${L('ammo.trackIndividualHint')}"><input type="checkbox" class="glinv-ammo-individual-toggle" ${trackIndividual ? 'checked' : ''}><i class="fas fa-hashtag"></i> ${L('ammo.trackIndividual')}</label>
                 </div>
             </div>`;
     }
@@ -1104,7 +1118,7 @@ export class TidyIntegration {
 
         const ammoOptions = ammoItems.map(a => {
             const dieLabel = AmmoDiceCalculator.usesAmmoDice(a) ? ` (${AmmoDiceCalculator.getDieLabel(a)})` : '';
-            return `<option value="${a.id}" ${a.id === pairedAmmoId ? 'selected' : ''}>${a.name}${dieLabel}</option>`;
+            return `<option value="${a.id}" ${a.id === pairedAmmoId ? 'selected' : ''}>${this._esc(a.name)}${dieLabel}</option>`;
         }).join('');
 
         // Show paired ammo status
@@ -1130,7 +1144,7 @@ export class TidyIntegration {
                             <span class="glinv-ammo-die-label">${dieLabel}</span>
                         </div>
                         <span class="glinv-ammo-max">/ d${maxDie}</span>
-                        <span class="glinv-ammo-paired-name">${pairedAmmo.name}</span>
+                        <span class="glinv-ammo-paired-name">${this._esc(pairedAmmo.name)}</span>
                     </div>
                     <div class="glinv-ammo-controls">
                         <button type="button" class="glinv-ammo-roll-paired" ${isEmpty ? 'disabled' : ''}
@@ -1140,7 +1154,7 @@ export class TidyIntegration {
                     </div>`;
             } else if (pairedAmmo) {
                 pairedStatusHtml = `<div class="glinv-repair-info">
-                    <small>${pairedAmmo.name} — ${game.i18n.localize('GLINVSLOTS.ammo.trackIndividual')}</small>
+                    <small>${this._esc(pairedAmmo.name)} — ${game.i18n.localize('GLINVSLOTS.ammo.trackIndividual')}</small>
                 </div>`;
             }
         }
@@ -1246,69 +1260,32 @@ export class TidyIntegration {
             diceVisHtml = `<div class="glinv-pool-dice-bar">${pips}</div>`;
         }
 
+        const L = (k) => game.i18n.localize(`GLINVSLOTS.${k}`);
         return `
-            <div class="glinv-item-config glinv-pool-config" data-glinv-section="pool">
-                <h4 class="glinv-config-header">
-                    <i class="fas fa-cubes"></i> ${game.i18n.localize('GLINVSLOTS.pool.config')}
-                </h4>
-                ${depleted ? `<div class="glinv-shattered-banner glinv-pool-depleted-banner">
-                    <i class="fas fa-skull"></i> ${game.i18n.localize('GLINVSLOTS.pool.depleted')}
-                </div>` : ''}
-                <div class="glinv-item-fields">
-                    <div class="glinv-pool-status">
-                        <div class="glinv-pool-display ${stateClass}">
-                            <i class="fas fa-cubes"></i>
-                            <span class="glinv-pool-label">${label}</span>
-                        </div>
-                        <span class="glinv-pool-fraction">${poolSize} / ${maxSize}</span>
-                    </div>
-                    ${diceVisHtml}
-                    <div class="glinv-pool-controls">
-                        <button type="button" class="glinv-pool-roll" ${depleted ? 'disabled' : ''}
-                                title="${game.i18n.localize('GLINVSLOTS.pool.rollPool')}">
-                            <i class="fas fa-dice"></i> ${game.i18n.localize('GLINVSLOTS.pool.rollPool')}
-                        </button>
-                        <button type="button" class="glinv-pool-refill" ${poolSize >= maxSize ? 'disabled' : ''}
-                                title="${game.i18n.localize('GLINVSLOTS.pool.refill')}">
-                            <i class="fas fa-arrows-rotate"></i> ${game.i18n.localize('GLINVSLOTS.pool.refill')}
-                        </button>
-                    </div>
-                    <div class="glinv-pool-controls">
-                        <button type="button" class="glinv-pool-add" ${poolSize >= maxSize ? 'disabled' : ''}
-                                title="${game.i18n.localize('GLINVSLOTS.pool.addDie')}">
-                            <i class="fas fa-plus"></i> ${game.i18n.localize('GLINVSLOTS.pool.addDie')}
-                        </button>
-                        <button type="button" class="glinv-pool-remove" ${depleted ? 'disabled' : ''}
-                                title="${game.i18n.localize('GLINVSLOTS.pool.removeDie')}">
-                            <i class="fas fa-minus"></i> ${game.i18n.localize('GLINVSLOTS.pool.removeDie')}
-                        </button>
-                    </div>
-                    <div class="glinv-pool-info">
-                        <small>${game.i18n.localize('GLINVSLOTS.pool.discardHint')} (${threshold === 1 ? '1 only' : `1-${threshold}`})</small>
-                    </div>
-                    <div class="glinv-item-field">
-                        <label>${game.i18n.localize('GLINVSLOTS.pool.maxPool')}</label>
-                        <input type="number" class="glinv-pool-max-size" value="${maxSize}" min="1" max="99" step="1">
-                    </div>
-                    <div class="glinv-item-field">
-                        <label>${game.i18n.localize('GLINVSLOTS.pool.dieType')}</label>
-                        <select class="glinv-pool-die-type">${dieTypeOptions}</select>
-                    </div>
-                    <div class="glinv-item-field">
-                        <label>${game.i18n.localize('GLINVSLOTS.pool.discardThreshold')}</label>
-                        <select class="glinv-pool-threshold">${thresholdOptions}</select>
-                    </div>
-                    ${game.user.isGM ? `<div class="glinv-item-field">
-                        <label>${game.i18n.localize('GLINVSLOTS.pool.currentPool')} (GM)</label>
-                        <input type="number" class="glinv-pool-current-override" value="${poolSize}" min="0" max="${maxSize}" step="1">
-                    </div>` : ''}
-                    <div class="glinv-item-field glinv-checkbox-field">
-                        <label>
-                            <input type="checkbox" class="glinv-pool-toggle" checked>
-                            <i class="fas fa-cubes"></i> ${game.i18n.localize('GLINVSLOTS.pool.useDicePool')}
-                        </label>
-                    </div>
+            <div class="glinv-item-config glinv-card glinv-pool-config ${stateClass}" data-glinv-section="pool">
+                <div class="glinv-card-head">
+                    <i class="fas fa-cubes"></i><span class="glinv-card-title">${L('pool.config')}</span>
+                    <span class="glinv-card-tag">${poolSize}d${dieType}</span>
                 </div>
+                <div class="glinv-pool-hero">
+                    ${diceVisHtml || ''}
+                    <span class="glinv-pool-fraction">${poolSize}<small>/${maxSize}</small></span>
+                </div>
+                <div class="glinv-btn-row">
+                    <button type="button" class="glinv-icon-btn glinv-pool-roll" ${depleted ? 'disabled' : ''} title="${L('pool.rollPool')}"><i class="fas fa-dice"></i></button>
+                    <button type="button" class="glinv-icon-btn glinv-pool-refill" ${poolSize >= maxSize ? 'disabled' : ''} title="${L('pool.refill')}"><i class="fas fa-arrows-rotate"></i></button>
+                    <button type="button" class="glinv-icon-btn glinv-pool-add" ${poolSize >= maxSize ? 'disabled' : ''} title="${L('pool.addDie')}"><i class="fas fa-plus"></i></button>
+                    <button type="button" class="glinv-icon-btn glinv-pool-remove" ${depleted ? 'disabled' : ''} title="${L('pool.removeDie')}"><i class="fas fa-minus"></i></button>
+                </div>
+                <div class="glinv-die-sub">${L('pool.discardHint')} (${threshold === 1 ? '1' : `1–${threshold}`})</div>
+                <div class="glinv-mini-fields">
+                    <label class="glinv-mini-field"><span>${L('pool.maxPool')}</span><input type="number" class="glinv-pool-max-size" value="${maxSize}" min="1" max="99" step="1"></label>
+                    <label class="glinv-mini-field"><span>${L('pool.dieType')}</span><select class="glinv-pool-die-type">${dieTypeOptions}</select></label>
+                    <label class="glinv-mini-field"><span>${L('pool.discardThreshold')}</span><select class="glinv-pool-threshold">${thresholdOptions}</select></label>
+                    ${game.user.isGM ? `<label class="glinv-mini-field"><span>${L('pool.currentPool')}</span><input type="number" class="glinv-pool-current-override" value="${poolSize}" min="0" max="${maxSize}" step="1"></label>` : ''}
+                    <label class="glinv-mini-check"><input type="checkbox" class="glinv-pool-toggle" checked><i class="fas fa-cubes"></i> ${L('pool.useDicePool')}</label>
+                </div>
+                ${depleted ? `<div class="glinv-card-banner"><i class="fas fa-skull"></i> ${L('pool.depleted')}</div>` : ''}
             </div>`;
     }
 

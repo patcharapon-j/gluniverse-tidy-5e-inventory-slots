@@ -338,52 +338,11 @@ Hooks.on('dnd5e.rollAttack', async (rolls, data) => {
     await AmmoDiceCalculator.rollAmmoDie(ammoItem, true);
 });
 
-// Update when items change
-Hooks.on('createItem', (item, options, userId) => {
-    if (!getSetting('enableSlotSystem') && !getSetting('enableAmmunitionDice') && !getSetting('enableDicePool')) return;
-    _refreshActorSheet(item.parent);
-});
-
-Hooks.on('updateItem', (item, changes, options, userId) => {
-    if (!getSetting('enableSlotSystem') && !getSetting('enableAmmunitionDice') && !getSetting('enableDicePool')) return;
-    _refreshActorSheet(item.parent);
-});
-
-Hooks.on('deleteItem', (item, options, userId) => {
-    if (!getSetting('enableSlotSystem') && !getSetting('enableAmmunitionDice') && !getSetting('enableDicePool')) return;
-    _refreshActorSheet(item.parent);
-});
-
-Hooks.on('updateActor', (actor, changes, options, userId) => {
-    if (!getSetting('enableSlotSystem')) return;
-    if (actor.type !== 'character' && actor.type !== 'npc') return;
-    _refreshActorSheet(actor);
-});
-
-/**
- * Re-inject our UI into the actor sheet after data changes.
- * Uses polling to survive Svelte re-render cycles that may wipe injected DOM.
- */
-function _refreshActorSheet(actor) {
-    if (!actor) return;
-    if (actor._glInvInterval) clearInterval(actor._glInvInterval);
-
-    let attempts = 0;
-    actor._glInvInterval = setInterval(() => {
-        attempts++;
-        const app = actor.sheet;
-        if (!app) { clearInterval(actor._glInvInterval); return; }
-        const el = unwrapElement(app.element);
-        if (!el) { clearInterval(actor._glInvInterval); return; }
-
-        TidyIntegration._processActorSheet(app, el);
-
-        // Panel is external to DOM — just run a few attempts to catch Svelte re-renders
-        if (attempts >= 5) {
-            clearInterval(actor._glInvInterval);
-        }
-    }, 300);
-}
+// NOTE: Sheet refresh after item/actor changes is no longer driven from here.
+// The v3 architecture registers inline content with `renderScheme: 'handlebars'`
+// (see TidyIntegration), so Tidy re-runs our render callbacks automatically on
+// any actor data / embedded-item change. The old setInterval-based re-injection
+// polling has been removed.
 
 function getSetting(key) {
     try {
