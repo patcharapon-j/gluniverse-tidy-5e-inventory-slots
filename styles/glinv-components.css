@@ -146,7 +146,8 @@
 .glinv-scope .glinv-slot-panel.glinv-heavy { box-shadow: var(--glinv-shadow-raised), 0 0 18px var(--glinv-warn-glow); }
 .glinv-scope .glinv-slot-panel.glinv-encumbered .glinv-count-used { color: var(--glinv-warn); }
 .glinv-scope .glinv-slot-panel.glinv-overburdened {
-    animation: glinv-dread 3.2s var(--glinv-ease) infinite;
+    box-shadow: var(--glinv-shadow-raised), 0 0 16px var(--glinv-danger-glow);
+    border-color: color-mix(in srgb, var(--glinv-danger) 50%, var(--glinv-edge));
 }
 .glinv-scope .glinv-slot-panel.glinv-overburdened .glinv-count-used { color: var(--glinv-danger); }
 
@@ -255,7 +256,7 @@
     color: var(--glinv-danger, #e0584f);
     font-variant-numeric: tabular-nums;
 }
-.tidy5e-sheet .glinv-shattered { color: var(--glinv-danger, #e0584f); animation: glinv-shatter 0.5s var(--glinv-ease) 1; }
+.tidy5e-sheet .glinv-shattered { color: var(--glinv-danger, #e0584f); }
 
 /* Temper gem badge — faceted ◆ with grade-tinted halo */
 .tidy5e-sheet .glinv-temper-badge {
@@ -423,7 +424,6 @@
         linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 45%),
         linear-gradient(180deg, color-mix(in srgb, var(--glinv-good) 80%, white), var(--glinv-good) 60%, color-mix(in srgb, var(--glinv-good) 70%, black));
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5), inset 0 -2px 3px rgba(0, 0, 0, 0.35), 0 0 5px var(--glinv-good-glow);
-    animation: glinv-die-roll 0.4s var(--glinv-ease-spring) both;
 }
 .glinv-scope .glinv-pool-pip-filled.glinv-pool-low { background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 45%), linear-gradient(180deg, color-mix(in srgb, var(--glinv-warn) 80%, white), var(--glinv-warn)); }
 .glinv-scope .glinv-pool-pip-filled.glinv-pool-critical,
@@ -545,7 +545,6 @@
     color: var(--glinv-danger);
     font-size: 0.72rem;
     font-weight: 700;
-    animation: glinv-dread 3.2s var(--glinv-ease) infinite;
 }
 
 /* ── Ammo card state accents (class on card root) ────────────────────── */
@@ -616,7 +615,6 @@
     border: 1px solid var(--glinv-danger);
     font-weight: 700;
     font-size: 0.74rem;
-    animation: glinv-dread 3.2s var(--glinv-ease) infinite;
 }
 
 .glinv-scope .glinv-repair-info,
@@ -652,7 +650,7 @@
 .glinv-scope .glinv-header-chip.glinv-heavy { box-shadow: var(--glinv-shadow-chip), 0 0 10px var(--glinv-warn-glow); }
 .glinv-scope .glinv-header-chip.glinv-encumbered { border-color: var(--glinv-warn); }
 .glinv-scope .glinv-header-chip.glinv-encumbered .glinv-hc-used { color: var(--glinv-warn); }
-.glinv-scope .glinv-header-chip.glinv-overburdened { border-color: var(--glinv-danger); animation: glinv-dread 3.2s var(--glinv-ease) infinite; }
+.glinv-scope .glinv-header-chip.glinv-overburdened { border-color: var(--glinv-danger); box-shadow: var(--glinv-shadow-chip), 0 0 10px var(--glinv-danger-glow); }
 .glinv-scope .glinv-header-chip.glinv-overburdened .glinv-hc-used { color: var(--glinv-danger); }
 
 /* ─── Slot-Machine Reel Count + Trend Triangle ──────────────────────── */
@@ -750,3 +748,112 @@
 
 /* ─── Settings Dialog (DialogV2) skin ───────────────────────────────── */
 .glinv-scope .glinv-override-form .form-group { margin-bottom: 0.6rem; }
+
+/* ═══ Chat Cards (ammo roll / pool roll results) ═════════════════════ */
+.glinv-scope.glinv-chat-card {
+    padding: 0.5rem 0.6rem;
+    border-radius: 8px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0) 38%),
+        var(--glinv-surface);
+    border: 1px solid var(--glinv-edge);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 2px 8px rgba(0, 0, 0, 0.4);
+    color: var(--glinv-ink);
+    font-family: var(--glinv-font);
+}
+.glinv-scope .glinv-cc-head {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--glinv-hair);
+    font-weight: 700;
+    font-size: 0.82rem;
+}
+.glinv-scope .glinv-cc-head > i { color: var(--glinv-tint); }
+.glinv-scope .glinv-cc-title { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.glinv-scope .glinv-cc-tag {
+    margin-left: auto;
+    padding: 0.05rem 0.5rem;
+    border-radius: var(--glinv-radius-pill);
+    background: var(--glinv-well);
+    border: 1px solid var(--glinv-edge);
+    font-size: 0.74rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+}
+
+/* Ammo result hero */
+.glinv-scope .glinv-cc-body { display: flex; align-items: center; gap: 0.6rem; }
+.glinv-scope .glinv-cc-die {
+    width: 2.6rem;
+    height: 2.6rem;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 9px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 48%),
+        var(--glinv-surface-2);
+    border: 1px solid var(--glinv-edge);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 6px rgba(0, 0, 0, 0.45);
+    animation: glinv-die-step 0.45s var(--glinv-ease) 1;
+}
+.glinv-scope .glinv-cc-die-val { font-size: 1.3rem; font-weight: 800; }
+.glinv-scope .glinv-cc-die-spent { color: var(--glinv-danger); }
+.glinv-scope .glinv-cc-result { font-size: 0.82rem; font-weight: 600; display: flex; align-items: center; gap: 0.35rem; }
+
+/* Pool result dice */
+.glinv-scope .glinv-cc-dice { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.5rem; }
+.glinv-scope .glinv-cc-d {
+    width: 1.55rem;
+    height: 1.55rem;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    border: 1px solid var(--glinv-edge);
+    font-weight: 800;
+    font-size: 0.82rem;
+    font-variant-numeric: tabular-nums;
+    animation: glinv-die-roll 0.4s var(--glinv-ease-spring) both;
+}
+.glinv-scope .glinv-cc-d-kept {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.28), rgba(255, 255, 255, 0) 45%),
+        color-mix(in srgb, var(--glinv-good) 32%, var(--glinv-surface-2));
+    color: #e2faee;
+    border-color: color-mix(in srgb, var(--glinv-good) 55%, var(--glinv-edge));
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 6px var(--glinv-good-glow);
+}
+.glinv-scope .glinv-cc-d-discarded {
+    background: color-mix(in srgb, var(--glinv-danger) 24%, var(--glinv-surface-2));
+    color: #ffd2cd;
+    border-color: color-mix(in srgb, var(--glinv-danger) 55%, var(--glinv-edge));
+    opacity: 0.8;
+    text-decoration: line-through;
+}
+
+/* Footer */
+.glinv-scope .glinv-cc-foot {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding-top: 0.42rem;
+    border-top: 1px solid var(--glinv-hair);
+    font-size: 0.76rem;
+    font-weight: 600;
+}
+.glinv-scope .glinv-cc-foot i { margin-right: 0.2rem; }
+.glinv-scope .glinv-cc-lost { color: var(--glinv-danger); }
+.glinv-scope .glinv-cc-safe { color: var(--glinv-good); }
+.glinv-scope .glinv-cc-depleted { color: var(--glinv-danger); font-weight: 800; }
+.glinv-scope .glinv-cc-remain { margin-left: auto; color: var(--glinv-muted); font-variant-numeric: tabular-nums; }
+.glinv-scope .glinv-cc-remain small { font-weight: 600; }
+
+/* State tints */
+.glinv-scope .glinv-cc-good .glinv-cc-result, .glinv-scope .glinv-cc-good .glinv-cc-die-val { color: var(--glinv-good); }
+.glinv-scope .glinv-cc-warn .glinv-cc-result, .glinv-scope .glinv-cc-warn .glinv-cc-die-val { color: var(--glinv-warn); }
+.glinv-scope .glinv-cc-danger .glinv-cc-result, .glinv-scope .glinv-cc-danger .glinv-cc-die-val { color: var(--glinv-danger); }
+.glinv-scope .glinv-cc-danger .glinv-cc-die { border-color: var(--glinv-danger); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 0 12px var(--glinv-danger-glow); }
+.glinv-scope .glinv-cc-warn .glinv-cc-die { border-color: color-mix(in srgb, var(--glinv-warn) 60%, var(--glinv-edge)); }
