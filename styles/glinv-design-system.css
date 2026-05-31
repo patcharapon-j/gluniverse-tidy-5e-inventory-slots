@@ -67,9 +67,9 @@
     --glinv-gold: #f0c75e;
     --glinv-gold-glow: rgba(240, 199, 94, 0.5);
 
-    /* Geometry */
-    --glinv-radius: 13px;
-    --glinv-radius-sm: 8px;
+    /* Geometry — tuned to sit tight against Tidy's own corner radii */
+    --glinv-radius: 8px;
+    --glinv-radius-sm: 5px;
     --glinv-radius-pill: 99px;
 
     /* Depth */

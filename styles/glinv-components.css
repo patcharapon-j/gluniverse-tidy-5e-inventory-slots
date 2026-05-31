@@ -7,20 +7,20 @@
  * `.glinv-scope` and consumes the tokens in glinv-design-system.css.
  * ===================================================================== */
 
-/* The injected roots flow inline within the sheet; reset stray legacy
- * floating-panel positioning that may still match older markup. */
+/* The injected roots flow inline within the sheet. No entrance animation —
+ * the only motion is on value change (the count reel / trend triangle). */
 .glinv-scope.glinv-actor-root,
 .glinv-scope.glinv-item-root {
     position: static;
     display: block;
     width: 100%;
     margin: 0.5rem 0;
-    animation: glinv-fade-in 0.32s var(--glinv-ease-soft) both;
 }
 
 /* ─── Slot Panel ────────────────────────────────────────────────────── */
 .glinv-scope .glinv-slot-panel {
-    padding: 0.4rem 0.5rem;
+    padding: 0.28rem 0.45rem 0.36rem;
+    border-radius: 6px;
     overflow: hidden;
 }
 
@@ -28,7 +28,7 @@
     display: flex;
     align-items: center;
     gap: 0.4rem;
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.26rem;
 }
 
 .glinv-scope .glinv-slot-label {
@@ -100,28 +100,24 @@
     box-shadow: 0 0 12px var(--glinv-glow-soft);
 }
 
-/* ─── Slot Boxes (shaded, à la clocks-and-tracker) ──────────────────── */
+/* ─── Slot Boxes (clean pips, no group well) ────────────────────────── */
 .glinv-scope .glinv-slot-boxes {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.28rem;            /* tighter distance between blocks of 5 */
+    gap: 0.32rem;            /* spacing between blocks of 5 */
 }
 .glinv-scope .glinv-slot-group {
     display: flex;
-    gap: 0.22rem;
-    padding: 0.2rem;
-    border-radius: var(--glinv-radius-sm);
-    /* recessed well the boxes sit inside */
-    background: linear-gradient(180deg, rgba(0, 0, 0, 0.32), rgba(0, 0, 0, 0.16));
-    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6), inset 0 -1px 0 rgba(255, 255, 255, 0.04);
+    gap: 0.16rem;            /* tight within a block */
+    /* no background / no recessed well — pips sit directly on the panel */
 }
 .glinv-scope .glinv-slot-box {
-    width: 0.85rem;
-    height: 0.85rem;
-    border-radius: 3px;
-    /* empty = carved-in recess */
-    background: linear-gradient(180deg, rgba(0, 0, 0, 0.34), rgba(255, 255, 255, 0.03));
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.65), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+    width: 0.82rem;
+    height: 0.82rem;
+    border-radius: 2px;
+    /* empty = subtle flat recess, not a heavy shaded tile */
+    background: rgba(255, 255, 255, 0.05);
+    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(255, 255, 255, 0.04);
     transition: background 0.16s var(--glinv-ease), box-shadow 0.16s var(--glinv-ease);
 }
 .glinv-scope .glinv-slot-box.glinv-filled {
@@ -247,18 +243,16 @@
     height: 0.8rem;
     transform: skewX(-20deg);
     border-radius: 1px;
-    background: linear-gradient(180deg, rgba(231, 185, 85, 0.95), rgba(150, 110, 30, 0.8));
-    box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.55), 0 0 4px rgba(231, 185, 85, 0.4);
+    background: linear-gradient(180deg, rgba(232, 96, 86, 0.98), rgba(120, 30, 25, 0.88));
+    box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.55), 0 0 4px rgba(224, 88, 79, 0.45);
 }
-.tidy5e-sheet .glinv-notch-warning .glinv-notch-pip { background: linear-gradient(180deg, rgba(231, 185, 85, 1), rgba(170, 120, 30, 0.85)); }
 .tidy5e-sheet .glinv-notch-critical .glinv-notch-pip {
-    background: linear-gradient(180deg, rgba(224, 88, 79, 0.95), rgba(120, 30, 25, 0.85));
-    box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.55), 0 0 5px rgba(224, 88, 79, 0.5);
+    box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.55), 0 0 6px rgba(224, 88, 79, 0.6);
 }
 .tidy5e-sheet .glinv-notch-count {
     font-size: 0.66rem;
     font-weight: 700;
-    color: var(--glinv-warn, #e7b955);
+    color: var(--glinv-danger, #e0584f);
     font-variant-numeric: tabular-nums;
 }
 .tidy5e-sheet .glinv-shattered { color: var(--glinv-danger, #e0584f); animation: glinv-shatter 0.5s var(--glinv-ease) 1; }
@@ -412,8 +406,8 @@
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
 }
 .glinv-scope .glinv-notch-bar-filled {
-    background: linear-gradient(180deg, color-mix(in srgb, var(--glinv-warn) 85%, white), var(--glinv-warn), color-mix(in srgb, var(--glinv-warn) 70%, black));
-    box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 0 5px var(--glinv-warn-glow);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--glinv-danger) 85%, white), var(--glinv-danger), color-mix(in srgb, var(--glinv-danger) 70%, black));
+    box-shadow: inset -1px 0 0 rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 0 5px var(--glinv-danger-glow);
 }
 
 /* Dice-pool pips: beveled dice cubes */
@@ -435,28 +429,160 @@
 .glinv-scope .glinv-pool-pip-filled.glinv-pool-critical,
 .glinv-scope .glinv-pool-pip-filled.glinv-pool-empty { background: linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 45%), linear-gradient(180deg, color-mix(in srgb, var(--glinv-danger) 80%, white), var(--glinv-danger)); }
 
-/* Ammo die display: a beveled die face with a large denomination */
+/* ═══ Compact Card System (ammo dice / dice pool) ════════════════════ */
+.glinv-scope .glinv-card {
+    padding: 0.5rem 0.55rem;
+    margin-bottom: 0.5rem;
+    border-radius: 7px;
+}
+.glinv-scope .glinv-card-head {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.5rem;
+    padding-bottom: 0.4rem;
+    border-bottom: 1px solid var(--glinv-hair);
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+.glinv-scope .glinv-card-head > i { color: var(--glinv-tint); }
+.glinv-scope .glinv-card-title { color: var(--glinv-ink); }
+.glinv-scope .glinv-card-tag {
+    margin-left: auto;
+    padding: 0.05rem 0.5rem;
+    border-radius: var(--glinv-radius-pill);
+    background: var(--glinv-well);
+    border: 1px solid var(--glinv-edge);
+    font-size: 0.78rem;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    color: var(--glinv-ink);
+}
+
+/* Hero rows */
+.glinv-scope .glinv-die-hero { display: flex; align-items: center; gap: 0.55rem; margin-bottom: 0.5rem; }
+.glinv-scope .glinv-pool-hero { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem; }
+
+/* Ammo: rounded die face + depletion track */
+.glinv-scope .glinv-die {
+    width: 2.1rem;
+    height: 2.1rem;
+    flex: none;
+    display: grid;
+    place-items: center;
+    border-radius: 8px;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 48%),
+        var(--glinv-surface-2);
+    border: 1px solid var(--glinv-edge);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+.glinv-scope .glinv-die-face { font-weight: 800; font-size: 0.92rem; color: var(--glinv-tint); }
+.glinv-scope .glinv-die-meta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.32rem; }
+.glinv-scope .glinv-die-track { display: flex; gap: 0.2rem; }
+.glinv-scope .glinv-step {
+    flex: 1;
+    height: 0.42rem;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.06);
+    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.55);
+    transition: background 0.18s var(--glinv-ease), box-shadow 0.18s var(--glinv-ease);
+}
+.glinv-scope .glinv-step.on {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--glinv-tint) 82%, white), var(--glinv-tint));
+    box-shadow: 0 0 5px var(--glinv-glow-soft);
+}
+.glinv-scope .glinv-die-sub { font-size: 0.64rem; color: var(--glinv-muted); letter-spacing: 0; text-transform: none; }
+
+/* Pool fraction readout */
+.glinv-scope .glinv-pool-fraction { margin-left: auto; font-weight: 800; font-size: 1.05rem; font-variant-numeric: tabular-nums; }
+.glinv-scope .glinv-pool-fraction small { color: var(--glinv-muted); font-weight: 600; font-size: 0.72rem; }
+
+/* Tactile icon-button row */
+.glinv-scope .glinv-btn-row { display: flex; gap: 0.35rem; margin-bottom: 0.5rem; }
+.glinv-scope .glinv-icon-btn {
+    flex: 1;
+    padding: 0.34rem 0;
+    font-size: 0.82rem;
+}
+
+/* Compact field grid */
+.glinv-scope .glinv-mini-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.35rem 0.45rem;
+    align-items: center;
+}
+.glinv-scope .glinv-mini-field { display: flex; flex-direction: column; gap: 0.15rem; }
+.glinv-scope .glinv-mini-field > span { font-size: 0.62rem; color: var(--glinv-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.glinv-scope .glinv-mini-field select,
+.glinv-scope .glinv-mini-field input { padding: 0.26rem 0.4rem; font-size: 0.76rem; }
+.glinv-scope .glinv-mini-check {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.72rem;
+    color: var(--glinv-ink);
+    cursor: pointer;
+}
+.glinv-scope .glinv-mini-check i { color: var(--glinv-tint); font-size: 0.72rem; }
+
+/* Inline depleted/empty banner */
+.glinv-scope .glinv-card-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-top: 0.5rem;
+    padding: 0.3rem 0.45rem;
+    border-radius: var(--glinv-radius-sm);
+    background: var(--glinv-danger-soft);
+    border: 1px solid var(--glinv-danger);
+    color: var(--glinv-danger);
+    font-size: 0.72rem;
+    font-weight: 700;
+    animation: glinv-dread 3.2s var(--glinv-ease) infinite;
+}
+
+/* ── Ammo card state accents (class on card root) ────────────────────── */
+.glinv-scope .glinv-ammo-die-low .glinv-die-face,
+.glinv-scope .glinv-ammo-die-low .glinv-card-tag { color: var(--glinv-warn); }
+.glinv-scope .glinv-ammo-die-low .glinv-step.on { background: linear-gradient(180deg, color-mix(in srgb, var(--glinv-warn) 82%, white), var(--glinv-warn)); box-shadow: 0 0 5px var(--glinv-warn-glow); }
+.glinv-scope .glinv-ammo-die-last .glinv-die-face,
+.glinv-scope .glinv-ammo-die-last .glinv-card-tag { color: var(--glinv-danger); }
+.glinv-scope .glinv-ammo-die-last .glinv-die { border-color: var(--glinv-danger); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 0 12px var(--glinv-danger-glow); }
+.glinv-scope .glinv-ammo-die-last .glinv-step.on { background: linear-gradient(180deg, color-mix(in srgb, var(--glinv-danger) 82%, white), var(--glinv-danger)); box-shadow: 0 0 5px var(--glinv-danger-glow); }
+.glinv-scope .glinv-ammo-die-empty .glinv-die-face,
+.glinv-scope .glinv-ammo-die-empty .glinv-card-tag { color: var(--glinv-muted); }
+.glinv-scope .glinv-ammo-die-empty .glinv-die { opacity: 0.7; }
+
+/* ── Pool card state accents ─────────────────────────────────────────── */
+.glinv-scope .glinv-pool-critical .glinv-card-tag,
+.glinv-scope .glinv-pool-empty .glinv-card-tag { color: var(--glinv-danger); }
+.glinv-scope .glinv-pool-low .glinv-card-tag { color: var(--glinv-warn); }
+
+/* ── Weapon→ammo pairing readout (shares the die look) ───────────────── */
 .glinv-scope .glinv-ammo-die-display {
     display: inline-flex;
     align-items: center;
     gap: 0.35rem;
-    padding: 0.25rem 0.55rem;
+    padding: 0.22rem 0.5rem;
     border-radius: 7px;
-    background:
-        linear-gradient(180deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0) 45%),
-        var(--glinv-surface-2);
+    background: linear-gradient(180deg, rgba(255, 255, 255, 0.12), rgba(255, 255, 255, 0) 48%), var(--glinv-surface-2);
     border: 1px solid var(--glinv-edge);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 2px 6px rgba(0, 0, 0, 0.45);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 2px 6px rgba(0, 0, 0, 0.4);
     font-weight: 800;
-    letter-spacing: 0.02em;
+    color: var(--glinv-tint);
 }
-.glinv-scope .glinv-ammo-die-label { font-size: 1.05rem; line-height: 1; }
-.glinv-scope .glinv-ammo-die-display i { font-size: 0.8rem; animation: glinv-die-step 0.5s var(--glinv-ease) 1; }
-.glinv-scope .glinv-ammo-die-low { color: var(--glinv-warn); border-color: var(--glinv-warn); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 0 10px var(--glinv-warn-glow); }
-.glinv-scope .glinv-ammo-die-low i { color: var(--glinv-warn); }
-.glinv-scope .glinv-ammo-die-last { color: var(--glinv-danger); border-color: var(--glinv-danger); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 0 12px var(--glinv-danger-glow); animation: glinv-dread 3.2s var(--glinv-ease) infinite; }
-.glinv-scope .glinv-ammo-die-last i { color: var(--glinv-danger); }
-.glinv-scope .glinv-ammo-die-empty { color: var(--glinv-muted); opacity: 0.6; }
+.glinv-scope .glinv-ammo-die-display .glinv-ammo-die-label { font-size: 1rem; line-height: 1; }
+.glinv-scope .glinv-ammo-die-display.glinv-ammo-die-low { color: var(--glinv-warn); border-color: var(--glinv-warn); }
+.glinv-scope .glinv-ammo-die-display.glinv-ammo-die-last { color: var(--glinv-danger); border-color: var(--glinv-danger); }
+.glinv-scope .glinv-ammo-die-display.glinv-ammo-die-empty { color: var(--glinv-muted); opacity: 0.7; }
+.glinv-scope .glinv-ammo-paired-name { color: var(--glinv-muted); font-size: 0.74rem; }
 
 /* Quality / temper badges */
 .glinv-scope .glinv-quality-badge,
@@ -598,11 +724,10 @@
     border: 1px solid color-mix(in srgb, var(--glinv-gold) 55%, var(--glinv-edge));
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 0 10px var(--glinv-gold-glow);
     overflow: hidden;
-    transition: transform 0.16s var(--glinv-ease-spring), box-shadow var(--glinv-dur) var(--glinv-ease);
-    animation: glinv-slot-pop 0.4s var(--glinv-ease-spring) both;
+    transition: transform 0.16s var(--glinv-ease), box-shadow var(--glinv-dur) var(--glinv-ease);
 }
 .glinv-scope .glinv-qd-chip:hover {
-    transform: translateY(-1px) scale(1.03);
+    transform: translateY(-1px) scale(1.02);
     box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16), 0 0 16px var(--glinv-gold-glow);
 }
 .glinv-scope .glinv-qd-chip img {

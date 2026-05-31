@@ -1066,60 +1066,35 @@ export class TidyIntegration {
                 </div>`;
         }
 
+        const L = (k) => game.i18n.localize(`GLINVSLOTS.${k}`);
+        const faceText = isEmpty ? '∅' : isLastShot ? '1' : `d${currentDie}`;
+        // Depletion track: one pip per chain step at or below the max die.
+        const track = AMMO_DIE_CHAIN.filter((d) => d <= maxDie)
+            .map((d) => `<span class="glinv-step ${currentDie >= d ? 'on' : ''}" title="d${d}"></span>`).join('');
+
         return `
-            <div class="glinv-item-config glinv-ammo-config" data-glinv-section="ammo">
-                <h4 class="glinv-config-header">
-                    <i class="fas fa-bullseye"></i> ${game.i18n.localize('GLINVSLOTS.ammo.config')}
-                </h4>
-                ${isEmpty ? `<div class="glinv-shattered-banner glinv-ammo-empty-banner">
-                    <i class="fas fa-times-circle"></i> ${game.i18n.localize('GLINVSLOTS.ammo.empty')}
-                </div>` : ''}
-                <div class="glinv-item-fields">
-                    <div class="glinv-ammo-status">
-                        <div class="glinv-ammo-die-display ${dieVisualClass}">
-                            <i class="fas fa-dice-d20"></i>
-                            <span class="glinv-ammo-die-label">${dieLabel}</span>
-                        </div>
-                        <span class="glinv-ammo-max">/ d${maxDie}</span>
+            <div class="glinv-item-config glinv-card glinv-ammo-config ${dieVisualClass}" data-glinv-section="ammo">
+                <div class="glinv-card-head">
+                    <i class="fas fa-bullseye"></i><span class="glinv-card-title">${L('ammo.config')}</span>
+                    <span class="glinv-card-tag">${faceText}</span>
+                </div>
+                <div class="glinv-die-hero">
+                    <div class="glinv-die"><span class="glinv-die-face">${faceText}</span></div>
+                    <div class="glinv-die-meta">
+                        <div class="glinv-die-track">${track}</div>
+                        <div class="glinv-die-sub">${L('ammo.maxDie')} d${maxDie}${replenishCost > 0 ? ` · ${replenishCost} gp` : ''}</div>
                     </div>
-                    <div class="glinv-ammo-controls">
-                        <button type="button" class="glinv-ammo-roll" ${isEmpty ? 'disabled' : ''}
-                                title="${game.i18n.localize('GLINVSLOTS.ammo.rollAmmo')}">
-                            <i class="fas fa-dice"></i> ${game.i18n.localize('GLINVSLOTS.ammo.rollAmmo')}
-                        </button>
-                        <button type="button" class="glinv-ammo-replenish" ${currentDie >= maxDie ? 'disabled' : ''}
-                                title="${game.i18n.localize('GLINVSLOTS.ammo.replenish')}">
-                            <i class="fas fa-plus"></i> ${game.i18n.localize('GLINVSLOTS.ammo.replenish')}
-                        </button>
-                    </div>
-                    <div class="glinv-ammo-controls">
-                        <button type="button" class="glinv-ammo-replenish-full" ${currentDie >= maxDie ? 'disabled' : ''}
-                                title="${game.i18n.localize('GLINVSLOTS.ammo.replenishFull')}">
-                            <i class="fas fa-arrows-rotate"></i> ${game.i18n.localize('GLINVSLOTS.ammo.replenishFull')}
-                        </button>
-                        <button type="button" class="glinv-ammo-reset"
-                                title="${game.i18n.localize('GLINVSLOTS.ammo.reset')}">
-                            <i class="fas fa-undo"></i> ${game.i18n.localize('GLINVSLOTS.ammo.reset')}
-                        </button>
-                    </div>
-                    ${replenishCost > 0 ? `<div class="glinv-repair-info">
-                        <small>${game.i18n.localize('GLINVSLOTS.ammo.replenishCost')}: ${replenishCost} gp (${game.i18n.localize('GLINVSLOTS.ammo.replenishFull')})</small>
-                    </div>` : ''}
-                    <div class="glinv-item-field">
-                        <label>${game.i18n.localize('GLINVSLOTS.ammo.maxDie')}</label>
-                        <select class="glinv-ammo-max-die">${dieOptions}</select>
-                    </div>
-                    ${game.user.isGM ? `<div class="glinv-item-field">
-                        <label>${game.i18n.localize('GLINVSLOTS.ammo.currentDie')} (GM)</label>
-                        <select class="glinv-ammo-current-die">${currentDieOptions}</select>
-                    </div>` : ''}
-                    <div class="glinv-item-field glinv-checkbox-field">
-                        <label>
-                            <input type="checkbox" class="glinv-ammo-individual-toggle" ${trackIndividual ? 'checked' : ''}>
-                            <i class="fas fa-hashtag"></i> ${game.i18n.localize('GLINVSLOTS.ammo.trackIndividual')}
-                        </label>
-                        <small class="glinv-field-hint">${game.i18n.localize('GLINVSLOTS.ammo.trackIndividualHint')}</small>
-                    </div>
+                </div>
+                <div class="glinv-btn-row">
+                    <button type="button" class="glinv-icon-btn glinv-ammo-roll" ${isEmpty ? 'disabled' : ''} title="${L('ammo.rollAmmo')}"><i class="fas fa-dice"></i></button>
+                    <button type="button" class="glinv-icon-btn glinv-ammo-replenish" ${currentDie >= maxDie ? 'disabled' : ''} title="${L('ammo.replenish')}"><i class="fas fa-plus"></i></button>
+                    <button type="button" class="glinv-icon-btn glinv-ammo-replenish-full" ${currentDie >= maxDie ? 'disabled' : ''} title="${L('ammo.replenishFull')}"><i class="fas fa-arrows-rotate"></i></button>
+                    <button type="button" class="glinv-icon-btn glinv-ammo-reset" title="${L('ammo.reset')}"><i class="fas fa-undo"></i></button>
+                </div>
+                <div class="glinv-mini-fields">
+                    <label class="glinv-mini-field"><span>${L('ammo.maxDie')}</span><select class="glinv-ammo-max-die">${dieOptions}</select></label>
+                    ${game.user.isGM ? `<label class="glinv-mini-field"><span>${L('ammo.currentDie')}</span><select class="glinv-ammo-current-die">${currentDieOptions}</select></label>` : ''}
+                    <label class="glinv-mini-check" title="${L('ammo.trackIndividualHint')}"><input type="checkbox" class="glinv-ammo-individual-toggle" ${trackIndividual ? 'checked' : ''}><i class="fas fa-hashtag"></i> ${L('ammo.trackIndividual')}</label>
                 </div>
             </div>`;
     }
@@ -1285,69 +1260,32 @@ export class TidyIntegration {
             diceVisHtml = `<div class="glinv-pool-dice-bar">${pips}</div>`;
         }
 
+        const L = (k) => game.i18n.localize(`GLINVSLOTS.${k}`);
         return `
-            <div class="glinv-item-config glinv-pool-config" data-glinv-section="pool">
-                <h4 class="glinv-config-header">
-                    <i class="fas fa-cubes"></i> ${game.i18n.localize('GLINVSLOTS.pool.config')}
-                </h4>
-                ${depleted ? `<div class="glinv-shattered-banner glinv-pool-depleted-banner">
-                    <i class="fas fa-skull"></i> ${game.i18n.localize('GLINVSLOTS.pool.depleted')}
-                </div>` : ''}
-                <div class="glinv-item-fields">
-                    <div class="glinv-pool-status">
-                        <div class="glinv-pool-display ${stateClass}">
-                            <i class="fas fa-cubes"></i>
-                            <span class="glinv-pool-label">${label}</span>
-                        </div>
-                        <span class="glinv-pool-fraction">${poolSize} / ${maxSize}</span>
-                    </div>
-                    ${diceVisHtml}
-                    <div class="glinv-pool-controls">
-                        <button type="button" class="glinv-pool-roll" ${depleted ? 'disabled' : ''}
-                                title="${game.i18n.localize('GLINVSLOTS.pool.rollPool')}">
-                            <i class="fas fa-dice"></i> ${game.i18n.localize('GLINVSLOTS.pool.rollPool')}
-                        </button>
-                        <button type="button" class="glinv-pool-refill" ${poolSize >= maxSize ? 'disabled' : ''}
-                                title="${game.i18n.localize('GLINVSLOTS.pool.refill')}">
-                            <i class="fas fa-arrows-rotate"></i> ${game.i18n.localize('GLINVSLOTS.pool.refill')}
-                        </button>
-                    </div>
-                    <div class="glinv-pool-controls">
-                        <button type="button" class="glinv-pool-add" ${poolSize >= maxSize ? 'disabled' : ''}
-                                title="${game.i18n.localize('GLINVSLOTS.pool.addDie')}">
-                            <i class="fas fa-plus"></i> ${game.i18n.localize('GLINVSLOTS.pool.addDie')}
-                        </button>
-                        <button type="button" class="glinv-pool-remove" ${depleted ? 'disabled' : ''}
-                                title="${game.i18n.localize('GLINVSLOTS.pool.removeDie')}">
-                            <i class="fas fa-minus"></i> ${game.i18n.localize('GLINVSLOTS.pool.removeDie')}
-                        </button>
-                    </div>
-                    <div class="glinv-pool-info">
-                        <small>${game.i18n.localize('GLINVSLOTS.pool.discardHint')} (${threshold === 1 ? '1 only' : `1-${threshold}`})</small>
-                    </div>
-                    <div class="glinv-item-field">
-                        <label>${game.i18n.localize('GLINVSLOTS.pool.maxPool')}</label>
-                        <input type="number" class="glinv-pool-max-size" value="${maxSize}" min="1" max="99" step="1">
-                    </div>
-                    <div class="glinv-item-field">
-                        <label>${game.i18n.localize('GLINVSLOTS.pool.dieType')}</label>
-                        <select class="glinv-pool-die-type">${dieTypeOptions}</select>
-                    </div>
-                    <div class="glinv-item-field">
-                        <label>${game.i18n.localize('GLINVSLOTS.pool.discardThreshold')}</label>
-                        <select class="glinv-pool-threshold">${thresholdOptions}</select>
-                    </div>
-                    ${game.user.isGM ? `<div class="glinv-item-field">
-                        <label>${game.i18n.localize('GLINVSLOTS.pool.currentPool')} (GM)</label>
-                        <input type="number" class="glinv-pool-current-override" value="${poolSize}" min="0" max="${maxSize}" step="1">
-                    </div>` : ''}
-                    <div class="glinv-item-field glinv-checkbox-field">
-                        <label>
-                            <input type="checkbox" class="glinv-pool-toggle" checked>
-                            <i class="fas fa-cubes"></i> ${game.i18n.localize('GLINVSLOTS.pool.useDicePool')}
-                        </label>
-                    </div>
+            <div class="glinv-item-config glinv-card glinv-pool-config ${stateClass}" data-glinv-section="pool">
+                <div class="glinv-card-head">
+                    <i class="fas fa-cubes"></i><span class="glinv-card-title">${L('pool.config')}</span>
+                    <span class="glinv-card-tag">${poolSize}d${dieType}</span>
                 </div>
+                <div class="glinv-pool-hero">
+                    ${diceVisHtml || ''}
+                    <span class="glinv-pool-fraction">${poolSize}<small>/${maxSize}</small></span>
+                </div>
+                <div class="glinv-btn-row">
+                    <button type="button" class="glinv-icon-btn glinv-pool-roll" ${depleted ? 'disabled' : ''} title="${L('pool.rollPool')}"><i class="fas fa-dice"></i></button>
+                    <button type="button" class="glinv-icon-btn glinv-pool-refill" ${poolSize >= maxSize ? 'disabled' : ''} title="${L('pool.refill')}"><i class="fas fa-arrows-rotate"></i></button>
+                    <button type="button" class="glinv-icon-btn glinv-pool-add" ${poolSize >= maxSize ? 'disabled' : ''} title="${L('pool.addDie')}"><i class="fas fa-plus"></i></button>
+                    <button type="button" class="glinv-icon-btn glinv-pool-remove" ${depleted ? 'disabled' : ''} title="${L('pool.removeDie')}"><i class="fas fa-minus"></i></button>
+                </div>
+                <div class="glinv-die-sub">${L('pool.discardHint')} (${threshold === 1 ? '1' : `1–${threshold}`})</div>
+                <div class="glinv-mini-fields">
+                    <label class="glinv-mini-field"><span>${L('pool.maxPool')}</span><input type="number" class="glinv-pool-max-size" value="${maxSize}" min="1" max="99" step="1"></label>
+                    <label class="glinv-mini-field"><span>${L('pool.dieType')}</span><select class="glinv-pool-die-type">${dieTypeOptions}</select></label>
+                    <label class="glinv-mini-field"><span>${L('pool.discardThreshold')}</span><select class="glinv-pool-threshold">${thresholdOptions}</select></label>
+                    ${game.user.isGM ? `<label class="glinv-mini-field"><span>${L('pool.currentPool')}</span><input type="number" class="glinv-pool-current-override" value="${poolSize}" min="0" max="${maxSize}" step="1"></label>` : ''}
+                    <label class="glinv-mini-check"><input type="checkbox" class="glinv-pool-toggle" checked><i class="fas fa-cubes"></i> ${L('pool.useDicePool')}</label>
+                </div>
+                ${depleted ? `<div class="glinv-card-banner"><i class="fas fa-skull"></i> ${L('pool.depleted')}</div>` : ''}
             </div>`;
     }
 
