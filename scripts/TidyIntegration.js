@@ -238,10 +238,10 @@ export class TidyIntegration {
             const stateClass = encumbranceState === 'overburdened' ? 'glinv-overburdened'
                 : encumbranceState === 'encumbered' ? 'glinv-encumbered'
                 : slotsUsed > maxSlots * 0.75 ? 'glinv-heavy' : '';
-            root.innerHTML = `<span class="glinv-header-chip ${stateClass}" title="${this._esc(L_inv(slotsUsed, maxSlots))}">
+            this._setHtmlIfChanged(root, `<span class="glinv-header-chip ${stateClass}" title="${this._esc(L_inv(slotsUsed, maxSlots))}">
                 <i class="fas fa-box"></i>
                 <span class="glinv-hc-used">${slotsUsed}</span><span class="glinv-hc-sep">/</span><span class="glinv-hc-max">${maxSlots}</span>
-            </span>`;
+            </span>`);
         } catch (err) {
             console.error(`${MODULE_ID} | Error rendering header chip:`, err);
         }
@@ -249,6 +249,27 @@ export class TidyIntegration {
         function L_inv(u, m) {
             return `${game.i18n.localize('GLINVSLOTS.inventorySlots')}: ${u}/${m}`;
         }
+    }
+
+    /**
+     * Map<Element, string> of the last HTML we wrote into a node. Tidy's
+     * `renderScheme: 'handlebars'` re-runs onRender on EVERY Svelte change
+     * cycle (any actor update — HP, spell slots, effects…), so unconditional
+     * innerHTML writes cause constant DOM teardown + reflow. Keyed weakly on
+     * the node itself: when Tidy/Svelte hands us a fresh node the entry is
+     * simply absent and we render normally.
+     */
+    static _htmlCache = new WeakMap();
+
+    /**
+     * Write `html` into `node` only if it differs from what we last wrote
+     * there (and the node still has that content). Returns true when written.
+     */
+    static _setHtmlIfChanged(node, html) {
+        if (this._htmlCache.get(node) === html && (node.firstChild || html === '')) return false;
+        node.innerHTML = html;
+        this._htmlCache.set(node, html);
+        return true;
     }
 
     /** Escape a string for safe interpolation into innerHTML. */
@@ -301,10 +322,14 @@ export class TidyIntegration {
                     this._actorSig.set(actor.id, sig);
                 }
             } else {
+                // Direct write (not _setHtmlIfChanged): the enabled branch writes
+                // this root directly, so the cache could be stale here. Clearing
+                // an already-empty node is free.
                 root.innerHTML = '';
             }
 
-            // Annotate inventory rows across the whole sheet (idempotent).
+            // Annotate inventory rows across the whole sheet (idempotent —
+            // unchanged rows are skipped via _rowAnnotationCache).
             this._annotateBulkOnRows(sheetEl, actor);
         } catch (err) {
             console.error(`${MODULE_ID} | Error rendering actor content:`, err);
@@ -380,7 +405,7 @@ export class TidyIntegration {
         if (!item || item.documentName !== 'Item' || !root) return;
 
         const nonPhysical = ['spell', 'feat', 'class', 'subclass', 'background', 'race', 'facility'];
-        if (nonPhysical.includes(item.type)) { root.innerHTML = ''; return; }
+        if (nonPhysical.includes(item.type)) { this._setHtmlIfChanged(root, ''); return; }
 
         try {
             let html = '';
@@ -388,8 +413,10 @@ export class TidyIntegration {
             if (getSetting('enableWearAndTear')) html += this._buildNotchConfigHtml(item);
             if (getSetting('enableAmmunitionDice')) html += this._buildAmmoConfigHtml(item);
             if (getSetting('enableDicePool')) html += this._buildDicePoolConfigHtml(item);
-            root.innerHTML = html;
-            // Fresh node each render → binding here cannot leak.
+            // Skip the rebuild (and re-bind) when nothing changed — change cycles
+            // fire for every item/actor update, not just ones that affect us.
+            if (!this._setHtmlIfChanged(root, html)) return;
+            // Fresh nodes on every write → binding here cannot leak.
             this._bindAllTabEvents(root, item, sheetEl);
         } catch (err) {
             console.error(`${MODULE_ID} | Error rendering item content:`, err);
@@ -610,15 +637,18 @@ export class TidyIntegration {
 
     // ─── Inline Slot Squares on Item Rows ────────────────────────────
 
-    static _annotateBulkOnRows(element, actor) {
-        element.querySelectorAll('.glinv-item-slots').forEach(el => el.remove());
-        element.querySelectorAll('.glinv-notch-indicator').forEach(el => el.remove());
-        element.querySelectorAll('.glinv-ammo-indicator').forEach(el => el.remove());
-        element.querySelectorAll('.glinv-pool-indicator').forEach(el => el.remove());
-        element.querySelectorAll('.glinv-quickdraw-row').forEach(el => el.classList.remove('glinv-quickdraw-row'));
+    /**
+     * Map<Element, string> of the annotation HTML last appended to a row's
+     * name cell. Lets each render cycle skip rows whose badges are unchanged
+     * instead of tearing down and rebuilding every badge on the sheet.
+     */
+    static _rowAnnotationCache = new WeakMap();
 
+    static _annotateBulkOnRows(element, actor) {
         const rows = element.querySelectorAll('[data-tidy-sheet-part="item-table-row"]');
         const wearEnabled = getSetting('enableWearAndTear');
+        const ammoEnabled = getSetting('enableAmmunitionDice');
+        const poolEnabled = getSetting('enableDicePool');
 
         for (const row of rows) {
             const container = row.closest('[data-item-id]');
@@ -632,19 +662,12 @@ export class TidyIntegration {
             const isBasic = SlotCalculator.isBasicSupply(item);
             const isQuickdraw = SlotCalculator.isQuickdraw(item);
 
-            const bulk = SlotCalculator._isArmor(item)
-                ? SlotCalculator.getArmorBulk(item, actor)
-                : SlotCalculator.getItemBulk(item, actor);
-
             const totalBulk = SlotCalculator._isArmor(item)
-                ? bulk * (item.system.quantity ?? 1)
+                ? SlotCalculator.getArmorBulk(item, actor) * (item.system.quantity ?? 1)
                 : SlotCalculator.getItemTotalBulk(item, actor);
 
             // Gold glow on quickdraw rows
-            if (isQuickdraw) {
-                const rowContainer = row.closest('[data-item-id]') || row;
-                rowContainer.classList.add('glinv-quickdraw-row');
-            }
+            container.classList.toggle('glinv-quickdraw-row', isQuickdraw);
 
             const nameCell = row.querySelector('[data-tidy-sheet-part="item-name"]')
                 || row.querySelector('.item-name')
@@ -682,25 +705,21 @@ export class TidyIntegration {
                 }
             }
 
-            nameCell.insertAdjacentHTML('beforeend', slotsHtml);
+            // Assemble all badges (slots, then notch/ammo/pool indicators) into
+            // one string and reconcile: rows whose annotations are unchanged are
+            // left untouched, so a change cycle only mutates the rows it affects.
+            let annotationsHtml = slotsHtml;
+            if (wearEnabled) annotationsHtml += this._buildNotchIndicator(item);
+            if (ammoEnabled) annotationsHtml += this._buildAmmoIndicator(item);
+            if (poolEnabled) annotationsHtml += this._buildDicePoolIndicator(item);
 
-            // ─── Notch Indicators ────────────────────────────────────
-            if (wearEnabled) {
-                const notchHtml = this._buildNotchIndicator(item);
-                if (notchHtml) nameCell.insertAdjacentHTML('beforeend', notchHtml);
-            }
+            const hasBadges = !!nameCell.querySelector('.glinv-item-slots');
+            if (hasBadges && this._rowAnnotationCache.get(nameCell) === annotationsHtml) continue;
 
-            // ─── Ammo Dice Indicators ────────────────────────────────
-            if (getSetting('enableAmmunitionDice')) {
-                const ammoHtml = this._buildAmmoIndicator(item);
-                if (ammoHtml) nameCell.insertAdjacentHTML('beforeend', ammoHtml);
-            }
-
-            // ─── Dice Pool Indicators ────────────────────────────────
-            if (getSetting('enableDicePool')) {
-                const poolHtml = this._buildDicePoolIndicator(item);
-                if (poolHtml) nameCell.insertAdjacentHTML('beforeend', poolHtml);
-            }
+            nameCell.querySelectorAll('.glinv-item-slots, .glinv-notch-indicator, .glinv-ammo-indicator, .glinv-pool-indicator')
+                .forEach(el => el.remove());
+            nameCell.insertAdjacentHTML('beforeend', annotationsHtml);
+            this._rowAnnotationCache.set(nameCell, annotationsHtml);
         }
     }
 
