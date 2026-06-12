@@ -41,7 +41,8 @@
   "styles": [
     "styles/glinv-design-system.css",
     "styles/inventory-slots.css",
-    "styles/glinv-components.css"
+    "styles/glinv-components.css",
+    "styles/glinv-etched-glass.css"
   ],
   "languages": [
     {

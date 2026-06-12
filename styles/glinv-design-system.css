@@ -34,36 +34,104 @@
         U+A720-A7FF;
 }
 
-/* ─── Design Tokens ─────────────────────────────────────────────────── */
+/* ═════════════════════════════════════════════════════════════════════
+ * ETCHED GLASS — canonical GL Universe design language (--gl-* tokens)
+ * ---------------------------------------------------------------------
+ * "Liquid glass as the material, Endfield as the drafting layer on top."
+ * These shared tokens are the source of truth; the module-local --glinv-*
+ * tokens below alias onto them so the whole module shifts as one palette.
+ * Ref: GL Universe Design Language Reference ("Etched Glass") v1.0.
+ * ═════════════════════════════════════════════════════════════════════ */
+.glinv-scope {
+    /* ── Ink ramp (surfaces) ── */
+    --gl-ink-0: #02070b;   /* deepest void — scrims, ceremony decks   */
+    --gl-ink-1: #080b11;   /* glass body base — panel terminus        */
+    --gl-ink-2: #0b0f17;   /* inputs, inset wells                     */
+    --gl-ink-3: #161d2c;   /* raised rows                             */
+
+    /* ── Text ── */
+    --gl-text:        #eef1f7;
+    --gl-text-bright: #f3fbff;
+    --gl-text-dim:    #98a2b6;
+    --gl-text-faint:  rgba(243, 251, 255, 0.38);
+
+    /* ── Lines & rims ── */
+    --gl-hair:        rgba(255, 255, 255, 0.08);
+    --gl-edge:        rgba(255, 255, 255, 0.13);
+    --gl-line-strong: rgba(244, 252, 255, 0.55);
+
+    /* ── Fixed semantic accents ── */
+    --gl-signal:     #ffd24a;   /* SIGNAL AMBER — system ceremony, "look here" */
+    --gl-signal-hot: #ffe070;   /* signal peak — flash sweeps, lit digits      */
+    --gl-cyan:       #5eeaff;
+    --gl-hazard:     #ff4a52;   /* unified danger                              */
+    --gl-good:       #5fdb92;
+    --gl-violet:     #b497ff;   /* mystery / hidden                            */
+    --gl-mission:    #37d99a;
+
+    /* ── Dynamic accent channel ──
+     * One variable carries the contextual color. This module's domain accent
+     * is the periwinkle brand tint; ceremony elements use --gl-signal. */
+    --gl-accent: #6b86d6;
+
+    /* ── Holographic ramp (single hero element only) ── */
+    --gl-holo-a: var(--gl-accent);
+    --gl-holo-b: var(--gl-violet);
+    --gl-holo-c: #ff66b3;
+
+    /* ── Typography voices ── */
+    --gl-display: 'Oxanium', 'Segoe UI', system-ui, sans-serif;
+    --gl-tech: 'Bahnschrift', 'Share Tech Mono', 'JetBrains Mono', Consolas, ui-monospace, monospace;
+
+    /* ── Motion ── */
+    --gl-ease:  cubic-bezier(0.16, 1, 0.3, 1);     /* default premium decel   */
+    --gl-snap:  cubic-bezier(0.2, 1.35, 0.22, 1);  /* slight overshoot        */
+    --gl-pop:   cubic-bezier(0.34, 1.56, 0.5, 1);  /* tactile pop             */
+    --gl-exit:  cubic-bezier(0.55, 0, 0.84, 0);    /* sharp accelerated exit  */
+    --gl-d-quick:  180ms;
+    --gl-d-move:   420ms;
+    --gl-d-reveal: 620ms;
+    --gl-d-splash: 720ms;
+    --gl-breathe:  2.6s;
+    --gl-dread:    3.2s;
+
+    /* ── Derived glows (always color-mix, never hand-picked) ── */
+    --gl-accent-glow:  color-mix(in srgb, var(--gl-accent) 45%, transparent);
+    --gl-accent-bloom: color-mix(in srgb, var(--gl-accent) 18%, transparent);
+    --gl-signal-glow:  color-mix(in srgb, var(--gl-signal) 45%, transparent);
+    --gl-signal-bloom: color-mix(in srgb, var(--gl-signal) 18%, transparent);
+}
+
+/* ─── Design Tokens (module-local, aliased onto --gl-*) ─────────────── */
 .glinv-scope {
     /* Typography */
-    --glinv-font: 'Oxanium', 'Segoe UI', system-ui, sans-serif;
+    --glinv-font: var(--gl-display);
 
     /* Ink & surface */
-    --glinv-ink: #eef1f7;
-    --glinv-muted: #98a2b6;
-    --glinv-hair: rgba(255, 255, 255, 0.08);
-    --glinv-edge: rgba(255, 255, 255, 0.13);
+    --glinv-ink: var(--gl-text);
+    --glinv-muted: var(--gl-text-dim);
+    --glinv-hair: var(--gl-hair);
+    --glinv-edge: var(--gl-edge);
     --glinv-surface: rgba(18, 22, 33, 0.72);
     --glinv-surface-2: rgba(26, 34, 51, 0.85);
     --glinv-well: rgba(0, 0, 0, 0.28);
 
-    /* Accent (periwinkle — primary brand tint) */
-    --glinv-tint: #6b86d6;
+    /* Accent (periwinkle — primary brand tint = --gl-accent) */
+    --glinv-tint: var(--gl-accent);
     --glinv-tint-2: #1a2233;
-    --glinv-glow: rgba(120, 150, 225, 0.5);
-    --glinv-glow-soft: rgba(120, 150, 225, 0.18);
+    --glinv-glow: color-mix(in srgb, var(--gl-accent) 50%, transparent);
+    --glinv-glow-soft: var(--gl-accent-bloom);
 
-    /* Semantic states */
-    --glinv-good: #67d39b;
-    --glinv-good-glow: rgba(103, 211, 155, 0.45);
-    --glinv-warn: #e7b955;
-    --glinv-warn-glow: rgba(231, 185, 85, 0.45);
-    --glinv-danger: #e0584f;
-    --glinv-danger-glow: rgba(224, 88, 79, 0.55);
-    --glinv-danger-soft: rgba(224, 88, 79, 0.22);
+    /* Semantic states (unified onto the --gl-* semantic set) */
+    --glinv-good: var(--gl-good);
+    --glinv-good-glow: color-mix(in srgb, var(--gl-good) 45%, transparent);
+    --glinv-warn: var(--gl-signal);
+    --glinv-warn-glow: var(--gl-signal-glow);
+    --glinv-danger: var(--gl-hazard);
+    --glinv-danger-glow: color-mix(in srgb, var(--gl-hazard) 55%, transparent);
+    --glinv-danger-soft: color-mix(in srgb, var(--gl-hazard) 22%, transparent);
 
-    /* Quickdraw / gold highlight */
+    /* Quickdraw / gold highlight (kept warm; harmonized toward signal) */
     --glinv-gold: #f0c75e;
     --glinv-gold-glow: rgba(240, 199, 94, 0.5);
 
@@ -71,6 +139,10 @@
     --glinv-radius: 8px;
     --glinv-radius-sm: 5px;
     --glinv-radius-pill: 99px;
+
+    /* Chamfer cut size (Etched Glass signature silhouette) */
+    --gl-cut: 12px;
+    --gl-cut-sm: 6px;
 
     /* Depth */
     --glinv-shadow-raised:
@@ -209,6 +281,60 @@
 @keyframes glinv-fade-in {
     0% { opacity: 0; transform: translateY(6px); }
     100% { opacity: 1; transform: translateY(0); }
+}
+
+/* ─── Etched Glass motion vocabulary ────────────────────────────────── */
+
+/* Sheen sweep — the precision rule of light draws across from the leading
+ * edge. Things it crosses light up. Used for active-enter / splash reveal. */
+@keyframes gl-sheen {
+    0% { transform: scaleX(0); opacity: 0; transform-origin: left center; }
+    20% { opacity: 1; }
+    100% { transform: scaleX(1); opacity: 0; transform-origin: left center; }
+}
+
+/* Diagonal wipe — panel reveals via a 45°-edged clip mask sliding in. */
+@keyframes gl-wipe {
+    0% { clip-path: polygon(0 0, 0 0, 0 100%, 0 100%); opacity: 0; }
+    100% { clip-path: polygon(0 0, 140% 0, 100% 100%, 0 100%); opacity: 1; }
+}
+
+/* Cascade stagger — list item enters sliding a few px along the diagonal. */
+@keyframes gl-cascade {
+    0% { opacity: 0; transform: translate(-6px, 4px); }
+    100% { opacity: 1; transform: translate(0, 0); }
+}
+
+/* Stamp — scale-in overshoot for ceremony verdicts (EMPTY / SHATTERED). */
+@keyframes gl-stamp {
+    0% { transform: scale(1.6); opacity: 0; filter: blur(2px); }
+    60% { transform: scale(0.94); opacity: 1; filter: blur(0); }
+    100% { transform: scale(1); }
+}
+
+/* Breathe — idle accent pulse (decorative loop; killed under reduced motion). */
+@keyframes gl-breathe {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+}
+
+/* Signal flash — a quick signal-amber fill sweep that recedes to outline. */
+@keyframes gl-signal-flash {
+    0% { background-position: -140% 0; }
+    100% { background-position: 140% 0; }
+}
+
+/* Bracket light-up — registration L-bracket brightening to accent. */
+@keyframes gl-bracket-lit {
+    0% { border-color: var(--gl-line-strong); box-shadow: none; }
+    100% { border-color: var(--gl-accent); box-shadow: 0 0 8px var(--gl-accent-glow); }
+}
+
+/* Hero numeral reveal — etched ghost lit by a passing rule (decode). */
+@keyframes gl-numeral-pop {
+    0% { transform: scale(0.6); opacity: 0; }
+    65% { transform: scale(1.14); opacity: 1; }
+    100% { transform: scale(1); }
 }
 
 /* ─── Reduced Motion ────────────────────────────────────────────────── */
