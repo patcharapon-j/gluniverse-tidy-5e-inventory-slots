@@ -1,0 +1,541 @@
+/* =====================================================================
+ * GLUniverse — Active Inventory  ·  ETCHED GLASS skin (Endfield layer)
+ * ---------------------------------------------------------------------
+ * The "drafting layer" of the GL Universe design language, applied on top
+ * of the v3 dark-HUD components. Loaded LAST so it wins on source order.
+ *
+ *   Glass  = the material (frosted, beveled, inner light)  ── from v3
+ *   Etched = the drafting marks laser-cut into it          ── this file
+ *     · one chamfered corner (the family signature)
+ *     · L-bracket registration marks
+ *     · precision rules — 1px lines of light
+ *     · technical-voice micro-labels & serials
+ *     · signal-amber ceremony accents (opaque decals)
+ *     · sheen-sweep reveals, stamps, holo hero
+ *
+ * Everything is scoped under `.glinv-scope` and consumes the --gl-* tokens
+ * from glinv-design-system.css. Ref: "Etched Glass" Design Language v1.0.
+ * ===================================================================== */
+
+/* ─────────────────────────────────────────────────────────────────────
+ * 1 · CHAMFERED GLASS PANELS
+ * Large glass keeps soft radii on three corners and takes the diagonal
+ * cut on one (top-right). clip-path clips outer box-shadow, so the drop +
+ * bloom move to `filter: drop-shadow()` (applied post-clip, follows the cut).
+ * ───────────────────────────────────────────────────────────────────── */
+.glinv-scope .glinv-slot-panel,
+.glinv-scope .glinv-item-config,
+.glinv-scope .glinv-card {
+    position: relative;
+    border-radius: 14px;
+    clip-path: polygon(0 0, calc(100% - var(--gl-cut)) 0, 100% var(--gl-cut), 100% 100%, 0 100%);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.16),
+        inset 0 -12px 28px rgba(0, 0, 0, 0.38);
+    filter:
+        drop-shadow(0 18px 40px rgba(0, 0, 0, 0.55))
+        drop-shadow(0 0 22px var(--gl-accent-bloom));
+}
+
+/* Re-lay the v3 glass body so the accent-tinted refraction reads on the cut. */
+.glinv-scope .glinv-slot-panel,
+.glinv-scope .glinv-item-config {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.10), rgba(255, 255, 255, 0) 34%),
+        linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.20)),
+        linear-gradient(98deg, color-mix(in srgb, var(--gl-accent) 14%, var(--gl-ink-1)), var(--gl-ink-1) 64%);
+    border: 1px solid var(--gl-edge);
+}
+
+/* L-bracket registration mark — top-left, inset 6px. Quiet until active. */
+.glinv-scope .glinv-slot-panel::after,
+.glinv-scope .glinv-item-config::after {
+    content: "";
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    width: 8px;
+    height: 8px;
+    border-top: 1px solid var(--gl-line-strong);
+    border-left: 1px solid var(--gl-line-strong);
+    opacity: 0.55;
+    pointer-events: none;
+    transition: border-color var(--gl-d-quick) var(--gl-ease),
+                box-shadow var(--gl-d-quick) var(--gl-ease),
+                opacity var(--gl-d-quick) var(--gl-ease);
+}
+.glinv-scope .glinv-slot-panel:hover::after,
+.glinv-scope .glinv-item-config:hover::after {
+    border-color: var(--gl-accent);
+    box-shadow: 0 0 8px var(--gl-accent-glow);
+    opacity: 1;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * 2 · TECHNICAL VOICE — micro-labels, kickers, serials
+ * Uppercase, tracked, monospace technical stack. Quiet (low alpha) garnish.
+ * ───────────────────────────────────────────────────────────────────── */
+.glinv-scope .glinv-slot-label,
+.glinv-scope .glinv-config-header,
+.glinv-scope .glinv-card-head,
+.glinv-scope .glinv-cc-head,
+.glinv-scope .glinv-qd-belt-label,
+.glinv-scope .glinv-mini-field > span,
+.glinv-scope .glinv-item-field > label,
+.glinv-scope .glinv-die-sub,
+.glinv-scope .glinv-state-badge {
+    font-family: var(--gl-tech);
+    letter-spacing: 0.14em;
+}
+
+/* Section headers gain a leading tick mark (precision accent) + a kicker. */
+.glinv-scope .glinv-config-header,
+.glinv-scope .glinv-card-head,
+.glinv-scope .glinv-cc-head {
+    position: relative;
+    padding-left: 0.85rem;
+}
+.glinv-scope .glinv-config-header::before,
+.glinv-scope .glinv-card-head::before,
+.glinv-scope .glinv-cc-head::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 50%;
+    width: 12px;
+    height: 2px;
+    transform: translateY(-50%);
+    background: var(--gl-accent);
+    box-shadow: 0 0 8px var(--gl-accent-glow);
+    border-radius: 1px;
+}
+
+/* The section header's bottom border becomes a precision rule of light. */
+.glinv-scope .glinv-config-header,
+.glinv-scope .glinv-card-head,
+.glinv-scope .glinv-cc-head {
+    border-bottom: 0;
+    position: relative;
+}
+.glinv-scope .glinv-config-header::after,
+.glinv-scope .glinv-card-head::after,
+.glinv-scope .glinv-cc-head::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--gl-accent) 24%, var(--gl-accent) 76%, transparent);
+    opacity: 0.45;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * 3 · SLOT PANEL HEADER — etched grid header with a serial designator
+ * ───────────────────────────────────────────────────────────────────── */
+.glinv-scope .glinv-grid-header {
+    position: relative;
+    padding-bottom: 0.3rem;
+    margin-bottom: 0.34rem;
+}
+.glinv-scope .glinv-grid-header::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    height: 1px;
+    background: linear-gradient(90deg, var(--gl-accent) 0%, transparent 60%);
+    opacity: 0.4;
+}
+.glinv-scope .glinv-slot-label i {
+    color: var(--gl-accent);
+    filter: drop-shadow(0 0 4px var(--gl-accent-glow));
+}
+
+/* Hero slot count — Oxanium numerals, tabular, with an etched glow. */
+.glinv-scope .glinv-count-used {
+    font-family: var(--gl-display);
+    color: var(--gl-text-bright);
+    text-shadow: 0 0 14px var(--gl-accent-glow), 0 1px 0 rgba(0, 0, 0, 0.35);
+}
+
+/* State badge → opaque signal-amber decal (Endfield "look here"). */
+.glinv-scope .glinv-state-badge {
+    background: var(--gl-signal);
+    color: var(--gl-ink-0);
+    border: 0;
+    border-radius: 0;
+    clip-path: polygon(var(--gl-cut-sm) 0, 100% 0, 100% 100%, 0 100%, 0 var(--gl-cut-sm));
+    font-weight: 800;
+    letter-spacing: 0.1em;
+    box-shadow: 0 0 12px var(--gl-signal-glow);
+}
+
+/* Overburdened / heavy panel state → hazard channel + dread breathing glow. */
+.glinv-scope .glinv-slot-panel.glinv-overburdened {
+    --gl-accent: var(--gl-hazard);
+    animation: glinv-dread var(--gl-dread) var(--gl-ease) infinite;
+}
+.glinv-scope .glinv-slot-panel.glinv-overburdened .glinv-state-badge {
+    background: var(--gl-hazard);
+    color: var(--gl-text-bright);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--gl-hazard) 55%, transparent);
+}
+.glinv-scope .glinv-slot-panel.glinv-heavy,
+.glinv-scope .glinv-slot-panel.glinv-encumbered {
+    --gl-accent: var(--gl-signal);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * 4 · SLOT PIPS — filled pips read the accent channel; over = signal/hazard
+ * ───────────────────────────────────────────────────────────────────── */
+.glinv-scope .glinv-slot-box.glinv-filled {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.45), rgba(255, 255, 255, 0) 45%),
+        linear-gradient(180deg, color-mix(in srgb, var(--gl-accent) 78%, white), var(--gl-accent) 60%, color-mix(in srgb, var(--gl-accent) 70%, black));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.55),
+        inset 0 -2px 3px rgba(0, 0, 0, 0.35),
+        0 1px 2px rgba(0, 0, 0, 0.45),
+        0 0 6px var(--gl-accent-glow);
+    animation: glinv-slot-pop var(--gl-d-quick) var(--gl-pop) both;
+}
+.glinv-scope .glinv-slot-box.glinv-over {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0) 45%),
+        linear-gradient(180deg, color-mix(in srgb, var(--gl-hazard) 80%, white), var(--gl-hazard) 60%, color-mix(in srgb, var(--gl-hazard) 70%, black));
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.5),
+        inset 0 -2px 3px rgba(0, 0, 0, 0.4),
+        0 0 9px color-mix(in srgb, var(--gl-hazard) 60%, transparent);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * 5 · BUTTONS — full-notch chip silhouette, press, sheen sweep on hover
+ * ───────────────────────────────────────────────────────────────────── */
+.glinv-scope button {
+    position: relative;
+    overflow: hidden;
+    border-radius: 0;
+    clip-path: polygon(var(--gl-cut-sm) 0, 100% 0, 100% 100%, 0 100%, 0 var(--gl-cut-sm));
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.18)),
+        var(--gl-ink-2);
+    border: 1px solid var(--gl-edge);
+    font-family: var(--gl-tech);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    transition: color var(--gl-d-quick) var(--gl-ease),
+                border-color var(--gl-d-quick) var(--gl-ease),
+                box-shadow var(--gl-d-quick) var(--gl-ease),
+                transform 120ms var(--gl-ease);
+}
+/* Sheen sweep — a precision rule of light draws across on hover. */
+.glinv-scope button::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    background: linear-gradient(105deg, transparent 35%,
+        color-mix(in srgb, var(--gl-accent) 55%, transparent) 50%, transparent 65%);
+    transform: translateX(-120%);
+    transition: transform var(--gl-d-reveal) var(--gl-ease);
+}
+.glinv-scope button:hover:not(:disabled) {
+    border-color: var(--gl-accent);
+    box-shadow: 0 0 14px var(--gl-accent-bloom);
+    transform: none;
+}
+.glinv-scope button:hover:not(:disabled)::before { transform: translateX(120%); }
+.glinv-scope button:active:not(:disabled) { transform: translateY(1px) scale(0.98); }
+
+/* Settings cog keeps its rotate-on-hover identity but joins the notch family. */
+.glinv-scope .glinv-settings-btn {
+    border-radius: 0;
+    clip-path: polygon(var(--gl-cut-sm) 0, 100% 0, 100% 100%, 0 100%, 0 var(--gl-cut-sm));
+}
+.glinv-scope .glinv-settings-btn::before { display: none; }
+
+/* ─────────────────────────────────────────────────────────────────────
+ * 6 · INPUTS — notched wells, signal-amber focus draw
+ * ───────────────────────────────────────────────────────────────────── */
+.glinv-scope select,
+.glinv-scope input[type="number"],
+.glinv-scope input[type="text"] {
+    border-radius: 0;
+    clip-path: polygon(var(--gl-cut-sm) 0, 100% 0, 100% 100%, 0 100%, 0 var(--gl-cut-sm));
+    background: var(--gl-ink-2);
+    border: 1px solid var(--gl-edge);
+    font-family: var(--gl-tech);
+    letter-spacing: 0.02em;
+}
+.glinv-scope select:focus,
+.glinv-scope input:focus {
+    border-color: var(--gl-signal);
+    box-shadow: 0 0 0 1px var(--gl-signal-glow), 0 0 12px var(--gl-signal-bloom);
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * 7 · HEADER CHIP — etched edge bar + technical label; stays a pill
+ * ───────────────────────────────────────────────────────────────────── */
+.glinv-scope .glinv-header-chip {
+    position: relative;
+    overflow: hidden;
+    padding-left: 0.62rem;
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(0, 0, 0, 0.2)),
+        var(--gl-ink-2);
+    border: 1px solid var(--gl-edge);
+    font-family: var(--gl-display);
+}
+/* 3px accent edge bar — the idle-state signature. */
+.glinv-scope .glinv-header-chip::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: var(--gl-accent);
+    box-shadow: 0 0 8px var(--gl-accent-glow);
+}
+.glinv-scope .glinv-header-chip i {
+    color: var(--gl-accent);
+    filter: drop-shadow(0 0 4px var(--gl-accent-glow));
+}
+.glinv-scope .glinv-header-chip .glinv-hc-used {
+    color: var(--gl-text-bright);
+    text-shadow: 0 0 10px var(--gl-accent-glow);
+}
+.glinv-scope .glinv-header-chip.glinv-heavy,
+.glinv-scope .glinv-header-chip.glinv-encumbered { --gl-accent: var(--gl-signal); }
+.glinv-scope .glinv-header-chip.glinv-overburdened {
+    --gl-accent: var(--gl-hazard);
+    animation: glinv-dread var(--gl-dread) var(--gl-ease) infinite;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * 8 · CHAT CARDS — the ceremony surface. Card-notch silhouette, crop
+ * marks, sheen reveal, precision divider, stamped verdict tints.
+ * ───────────────────────────────────────────────────────────────────── */
+.glinv-scope.glinv-chat-card {
+    position: relative;
+    overflow: hidden;
+    border-radius: 0;
+    clip-path: polygon(0 0, calc(100% - var(--gl-cut)) 0, 100% var(--gl-cut), 100% 100%, 0 100%);
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0) 32%),
+        linear-gradient(98deg, color-mix(in srgb, var(--gl-accent) 12%, var(--gl-ink-1)), var(--gl-ink-1) 70%);
+    border: 1px solid var(--gl-edge);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.14),
+        inset 0 0 0 1px color-mix(in srgb, var(--gl-accent) 16%, transparent),
+        inset 0 -10px 24px rgba(0, 0, 0, 0.35);
+    /* Reveal via a diagonal settle (keeps the static chamfer intact — never
+     * animate clip-path here or the cut corner is lost on settle). */
+    animation: gl-cascade var(--gl-d-reveal) var(--gl-ease) both;
+}
+/* Splash-reveal precision rule: a line of light sweeps across on render. */
+.glinv-scope.glinv-chat-card::after {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 0;
+    right: 0;
+    height: 1px;
+    transform-origin: left center;
+    background: linear-gradient(90deg, transparent, var(--gl-accent) 24%, var(--gl-accent) 76%, transparent);
+    box-shadow: 0 0 14px var(--gl-accent-glow);
+    animation: gl-sheen var(--gl-d-splash) var(--gl-ease) both;
+}
+/* L-bracket registration mark, top-left. */
+.glinv-scope.glinv-chat-card::before {
+    content: "";
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    width: 9px;
+    height: 9px;
+    border-top: 1px solid var(--gl-line-strong);
+    border-left: 1px solid var(--gl-line-strong);
+    opacity: 0.6;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.glinv-scope .glinv-cc-head { font-family: var(--gl-tech); letter-spacing: 0.1em; }
+.glinv-scope .glinv-cc-head > i { color: var(--gl-accent); filter: drop-shadow(0 0 4px var(--gl-accent-glow)); }
+.glinv-scope .glinv-cc-title { font-family: var(--gl-display); letter-spacing: 0; }
+
+/* Result tag → opaque signal decal. */
+.glinv-scope .glinv-cc-tag {
+    border-radius: 0;
+    clip-path: polygon(var(--gl-cut-sm) 0, 100% 0, 100% 100%, 0 100%, 0 var(--gl-cut-sm));
+    background: var(--gl-signal);
+    color: var(--gl-ink-0);
+    border: 0;
+    font-family: var(--gl-display);
+    box-shadow: 0 0 10px var(--gl-signal-glow);
+}
+
+/* Hero die — Oxanium numeral with selective overshoot reveal. */
+.glinv-scope .glinv-cc-die {
+    border-radius: 0;
+    clip-path: polygon(var(--gl-cut-sm) 0, 100% 0, 100% 100%, 0 100%, 0 var(--gl-cut-sm));
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0) 48%),
+        var(--gl-ink-2);
+    border: 1px solid var(--gl-edge);
+    animation: gl-numeral-pop var(--gl-d-reveal) var(--gl-snap) both;
+}
+.glinv-scope .glinv-cc-die-val {
+    font-family: var(--gl-display);
+    text-shadow: 0 0 14px var(--gl-accent-glow);
+}
+.glinv-scope .glinv-cc-foot { font-family: var(--gl-tech); letter-spacing: 0.05em; }
+.glinv-scope .glinv-cc-foot,
+.glinv-scope .glinv-cc-result { font-variant-numeric: tabular-nums; }
+
+/* Pool dice reveal with a cascade stagger. */
+.glinv-scope .glinv-cc-d {
+    border-radius: 0;
+    clip-path: polygon(var(--gl-cut-sm) 0, 100% 0, 100% 100%, 0 100%, 0 var(--gl-cut-sm));
+    font-family: var(--gl-display);
+    animation: gl-cascade var(--gl-d-move) var(--gl-snap) both;
+}
+.glinv-scope .glinv-cc-d:nth-child(2) { animation-delay: 40ms; }
+.glinv-scope .glinv-cc-d:nth-child(3) { animation-delay: 80ms; }
+.glinv-scope .glinv-cc-d:nth-child(4) { animation-delay: 120ms; }
+.glinv-scope .glinv-cc-d:nth-child(5) { animation-delay: 160ms; }
+.glinv-scope .glinv-cc-d:nth-child(6) { animation-delay: 200ms; }
+
+/* Verdict channels: good keeps accent neutral; warn → signal; danger → hazard
+ * and the card breathes the dread pulse. */
+.glinv-scope.glinv-chat-card.glinv-cc-good { --gl-accent: var(--gl-good); }
+.glinv-scope.glinv-chat-card.glinv-cc-warn { --gl-accent: var(--gl-signal); }
+.glinv-scope.glinv-chat-card.glinv-cc-danger {
+    --gl-accent: var(--gl-hazard);
+    animation: gl-cascade var(--gl-d-reveal) var(--gl-ease) both,
+               glinv-dread var(--gl-dread) var(--gl-ease) 0.7s infinite;
+}
+.glinv-scope.glinv-chat-card.glinv-cc-danger .glinv-cc-tag { background: var(--gl-hazard); color: var(--gl-text-bright); }
+
+/* ─────────────────────────────────────────────────────────────────────
+ * 9 · DIE HERO / TRACK (inline ammo & pool cards)
+ * ───────────────────────────────────────────────────────────────────── */
+.glinv-scope .glinv-die {
+    border-radius: 0;
+    clip-path: polygon(var(--gl-cut-sm) 0, 100% 0, 100% 100%, 0 100%, 0 var(--gl-cut-sm));
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0) 48%),
+        var(--gl-ink-2);
+}
+.glinv-scope .glinv-die-face { font-family: var(--gl-display); color: var(--gl-accent); }
+.glinv-scope .glinv-step.on {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--gl-accent) 82%, white), var(--gl-accent));
+    box-shadow: 0 0 5px var(--gl-accent-bloom);
+}
+.glinv-scope .glinv-card-tag {
+    border-radius: 0;
+    clip-path: polygon(var(--gl-cut-sm) 0, 100% 0, 100% 100%, 0 100%, 0 var(--gl-cut-sm));
+    font-family: var(--gl-display);
+}
+.glinv-scope .glinv-pool-fraction { font-family: var(--gl-display); text-shadow: 0 0 12px var(--gl-accent-glow); }
+
+/* Ammo state channels on the card root re-point the accent. */
+.glinv-scope .glinv-ammo-die-low { --gl-accent: var(--gl-signal); }
+.glinv-scope .glinv-ammo-die-last,
+.glinv-scope .glinv-pool-critical,
+.glinv-scope .glinv-pool-empty { --gl-accent: var(--gl-hazard); }
+.glinv-scope .glinv-pool-low { --gl-accent: var(--gl-signal); }
+
+/* ─────────────────────────────────────────────────────────────────────
+ * 10 · QUICKDRAW BELT — signal/gold etched tray with caution edging
+ * ───────────────────────────────────────────────────────────────────── */
+.glinv-scope .glinv-quickdraw-belt {
+    position: relative;
+    border-top: 0;
+    margin-top: 0.55rem;
+    padding-top: 0.6rem;
+}
+.glinv-scope .glinv-quickdraw-belt::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 3px;
+    background: repeating-linear-gradient(45deg,
+        var(--gl-ink-0) 0 7px, var(--gl-signal) 7px 14px);
+    opacity: 0.8;
+    border-radius: 1px;
+}
+.glinv-scope .glinv-qd-belt-label {
+    font-family: var(--gl-tech);
+    letter-spacing: 0.12em;
+    color: var(--gl-signal);
+}
+.glinv-scope .glinv-qd-chip {
+    border-radius: 0;
+    clip-path: polygon(var(--gl-cut-sm) 0, 100% 0, 100% 100%, 0 100%, 0 var(--gl-cut-sm));
+    border-color: color-mix(in srgb, var(--gl-signal) 55%, var(--gl-edge));
+}
+.glinv-scope .glinv-qd-chip i { color: var(--gl-signal); }
+.glinv-scope .glinv-qd-chip-name { font-family: var(--gl-display); }
+
+/* ─────────────────────────────────────────────────────────────────────
+ * 11 · BADGES & PILLS — technical voice, notched chips
+ * ───────────────────────────────────────────────────────────────────── */
+.glinv-scope .glinv-quality-badge,
+.glinv-scope .glinv-temper-badge {
+    font-family: var(--gl-tech);
+    letter-spacing: 0.1em;
+    border-radius: 0;
+    clip-path: polygon(var(--gl-cut-sm) 0, 100% 0, 100% 100%, 0 100%, 0 var(--gl-cut-sm));
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * 12 · ROW BADGES — accent-driven inline pips read the channel
+ * ───────────────────────────────────────────────────────────────────── */
+.tidy5e-sheet .glinv-sq-normal {
+    background: var(--gl-accent);
+    box-shadow: 0 0 4px var(--gl-accent-glow);
+}
+.tidy5e-sheet .glinv-ammo-indicator i { color: var(--gl-accent); }
+.tidy5e-sheet .glinv-ammo-ind-low { --gl-accent: var(--gl-signal); }
+.tidy5e-sheet .glinv-ammo-ind-low i { color: var(--gl-signal); }
+.tidy5e-sheet .glinv-ammo-ind-last { --gl-accent: var(--gl-hazard); }
+.tidy5e-sheet .glinv-ammo-ind-last i { color: var(--gl-hazard); }
+
+/* ─────────────────────────────────────────────────────────────────────
+ * 13 · HOLO HERO — the single most important live element may take the
+ * three-stop holographic ramp. Reserved for the depleted-pool fraction.
+ * ───────────────────────────────────────────────────────────────────── */
+.glinv-scope .glinv-pool-empty .glinv-pool-fraction,
+.glinv-scope .glinv-ammo-die-empty .glinv-die-face {
+    background: linear-gradient(180deg, var(--gl-holo-a), var(--gl-holo-b) 50%, var(--gl-holo-c));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    text-shadow: none;
+    filter: drop-shadow(0 0 8px var(--gl-accent-glow));
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+ * 14 · MOTION TIERS — cinematic embellishment + reduced-motion clamp
+ * Decorative infinite loops are DISABLED (not slowed) under reduced motion;
+ * functional transitions clamp to ≤120ms; ceremonies become straight fades.
+ * ───────────────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+    .glinv-scope .glinv-slot-panel.glinv-overburdened,
+    .glinv-scope .glinv-header-chip.glinv-overburdened,
+    .glinv-scope.glinv-chat-card.glinv-cc-danger {
+        animation: none !important;
+    }
+    .glinv-scope button::before,
+    .glinv-scope.glinv-chat-card::after { display: none !important; }
+    .glinv-scope.glinv-chat-card {
+        animation: glinv-fade-in 120ms linear both !important;
+    }
+}

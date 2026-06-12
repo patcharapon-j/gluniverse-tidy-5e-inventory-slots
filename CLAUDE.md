@@ -183,9 +183,10 @@ gluniverse-tidy-5e-inventory-slots/
 │   ├── DicePoolCalculator.js# Resource dice pools
 │   └── TidyIntegration.js   # Inline integration via Tidy 5e registration API (v3)
 ├── styles/
-│   ├── glinv-design-system.css # Tokens, bundled @font-face, keyframe library
+│   ├── glinv-design-system.css # --gl-* "Etched Glass" tokens + --glinv-* aliases, @font-face, keyframe library
 │   ├── inventory-slots.css     # Legacy styles (kept; floating-panel rules now inert)
-│   └── glinv-components.css     # v3 dark-HUD component skin (loaded last)
+│   ├── glinv-components.css     # v3 dark-HUD component skin
+│   └── glinv-etched-glass.css  # Endfield "drafting layer": chamfers, L-brackets, precision rules, signal accents (loaded last)
 ├── fonts/
 │   ├── Oxanium-latin.woff2      # Bundled variable display font (offline-safe)
 │   └── Oxanium-latin-ext.woff2
